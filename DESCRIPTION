@@ -9,7 +9,7 @@ Citation: Patil, S.S., Venkatesh, B. and Singh, R., 2016.
 Depends:  R (>= 3.2.0)
 Suggests: knitr
 VignetteBuilder: knitr
-Imports: sqldf,entropy,reshape2,igraph,GEOquery,Biobase
+Imports: sqldf,entropy,reshape2,igraph,GEOquery,Biobase,TCGAbiolinks,org.Hs.eg.db
 From Differentiated Genes to Affected Pathways. bioRxiv, p.038901.
 Description: An R package to analyse affected pathways in differential
 expression experiments. The approach is to disturb  each node of a gene-gene

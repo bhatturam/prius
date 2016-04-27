@@ -2,12 +2,18 @@ library(sqldf)
 library(stringr)
 library(igraph)
 library(entropy)
-library(GEOquery)
-library(Biobase)
-uniProt2HGNCDataURL = 'http://www.genenames.org/cgi-bin/download?col=gd_hgnc_id&col=gd_app_sym&col=md_prot_id&status=Approved&status_opt=2&where=&order_by=gd_hgnc_id&format=text&limit=&submit=submit'
+library(tools)
+
+CONSTANTS<-list(
+    uniProt2HGNCDataURL = 'http://www.genenames.org/cgi-bin/download?col=gd_hgnc_id&col=gd_app_sym&col=md_prot_id&status=Approved&status_opt=2&where=&order_by=gd_hgnc_id&format=text&limit=&submit=submit',
+    reactome=list(mitabURL='http://www.reactome.org/download/current/homo_sapiens.mitab.interactions.txt.gz',
+                  downloadedFilename = 'homo_sapiens.mitab.interactions.txt.gz'
+                  )
+)
+
 getUniProtToHGNCSymbolMapping <- function(){
     us <- read.csv(
-        url(uniProt2HGNCDataURL)
+        url(CONSTANTS$uniProt2HGNCDataURL)
         ,sep="\t",header=FALSE,skip=1,stringsAsFactors = FALSE);
     us<-subset(us[,c(2,3)],V3 != '')
     colnames(us) <- c('HGNCSymbol','uniProtID')
@@ -23,17 +29,20 @@ createIGraphObject <- function(geneInteractionList){
     return(list(igraph_object=g,vertex_map=vmap))
 }
 
-loadPPIGraphReactome<-function(mitab,usmap=NULL){
+downloadReactomeInteractions <- function(data_folder){
+    dFilePath <- file.path(data_folder,CONSTANTS$reactome$downloadedFilename)
+    download.file(CONSTANTS$reactome$mitabURL,dFilePath);
+    return(read.csv(gzfile(dFilePath),header=FALSE,sep="\t",skip=1,stringsAsFactors= FALSE));
+}
+
+loadPPIGraphReactome<-function(mitab,usmap){
     idata<-mitab[,c(1,2)]
     idata[,1]<-gsub('uniprotkb:','',gsub('-[0-9]','',idata[,1]));
     idata[,2]<-gsub('uniprotkb:','',gsub('-[0-9]','',idata[,2]));
     colnames(idata) <- c("aup","bup")
     idata<-subset(idata,aup != bup);
-    if(is.null(usmap)){
-        usmap<-getUniProtToHGNCSymbolMapping()
-    }
     mapgraphA = merge(x=idata,y=usmap,by.x="aup",by.y="uniProtID")[,c(3,2)]
-    mapgraph = merge(x=mangraphA,y=usmap,by.x="bup",by.y="uniProtID")[,c(1,3)]
+    mapgraph = merge(x=mapgraphA,y=usmap,by.x="bup",by.y="uniProtID")[,c(2,3)]
     colnames(mapgraph)=c("A","B")
     return(createIGraphObject(subset(unique(mapgraph),A!=B)))
 }
@@ -81,32 +90,44 @@ loadPathwayDataReactome <- function(pdata,usmap){
                 pathwayMembership=split(memberships,memberships$reactomeID)))
 }
 
-loadExpressionDataGEO <- function(eset,gpl,normalIdx,diseaseIdx){
-    dataRowNames<-data.frame(probeName=featureNames(featureData(eset)))
+probeCombinerMean <- function(pls,expdata){
+    probes = unlist(strsplit(pls,','))
+    if(length(probes) > 1){
+        return(colMeans(expdata[probes,]))
+    }else{
+        return(expdata[probes,])
+    }
+}
+
+prepareExpressionData <- function(eset,gpl,combinerFunction){
+    expdata = exprs(eset)
+    dataRowNames<-data.frame(probeName=row.names(expdata))
     hgnc2probe<-Table(gpl)[,c("ID","Gene Symbol")]
     names(hgnc2probe)<-c("probeName","HGNCSymbol")
     selectedProbes<-subset(hgnc2probe,
                            (grepl("[0-9]+_at", probeName) |
                                 grepl("[0-9]+_a_at", probeName) ) & !grepl(" ",HGNCSymbol))
     selectedProbes<-merge(x=selectedProbes,y=dataRowNames,by="probeName")[,c(1,2)]
-    expdata = exprs(eset[selectedProbes$probe,])
-    hgncProbeList =  sqldf("select a.hgnc, group_concat(a.probe) as
+    hgncProbeList =  sqldf("select a.HGNCSymbol, group_concat(a.probeName) as
                          probes from hgnc2probe a inner join selectedProbes b
-                         on b.probe=a.probe where hgnc != ''
-                         and hgnc is not null group by hgnc ")
-    listFunction <- function(pls,expdata){
-        probes = unlist(strsplit(pls,','))
-        if(length(probes) > 1){
-            return(colMeans(expdata[probes,]))
-        }else{
-            return(expdata[probes,])
-        }
+                         on b.probeName=a.probeName where a.HGNCSymbol != ''
+                         and a.HGNCSymbol is not null and a.probeName is not null group by a.HGNCSymbol")
+    data = t(sapply(hgncProbeList$probes,combinerFunction,expdata))
+    row.names(data) = hgncProbeList$HGNCSymbol
+    return(data)
+}
+
+logPairedTTestFunction <- function(normalData,tumorData){
+    result = t.test(log(1+normal_data),log(1+tumor_data),paired=TRUE)
+    return(data.frame(foldChange=exp(result$estimate),pValue=result$p.value,normalMean=mean(normal_data),tumorMean=mean(tumor_data)))
+}
+
+runTestOnData <- function (data,normalSampleIndexes,diseaseSampleIndexes,testFunction){
+    hgncSymbols = row.names(data)
+    normalData = t(data[,normalSampleIndexes])
+    diseaseData = t(data[,diseaseSampleIndexes])
+    result = data.frame(foldChange=rep(0,length(hgncSymbols)),pValue=rep(0,length(hgncSymbols)),row.names = hgncSymbols);
+    for(i in 1:length(result$gene_name)){
+        result[i,] = testFunction(normalData[,i],diseaseData[,i])
     }
-    data = t(sapply(hgncProbeList$probes,listFunction,expdata))
-    row.names(data) = hgncProbeList$hgnc
-    normalData = as.data.frame(data[,normalIdx])
-    normalData$hgnc = row.names(data)
-    diseaseData = as.data.frame(data[,diseaseIdx])
-    diseaseData$hgnc = row.names(data)
-    return(list(normal=normalData,disease=diseaseData))
 }
