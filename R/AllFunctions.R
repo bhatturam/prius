@@ -117,17 +117,24 @@ prepareExpressionData <- function(eset,gpl,combinerFunction){
     return(data)
 }
 
-logPairedTTestFunction <- function(normalData,tumorData){
-    result = t.test(log(1+normal_data),log(1+tumor_data),paired=TRUE)
-    return(data.frame(foldChange=exp(result$estimate),pValue=result$p.value,normalMean=mean(normal_data),tumorMean=mean(tumor_data)))
+logPairedTTestFunction <- function(nData,dData,hgncSymbol){
+    if(is.null(nData) && is.null(dData) && is.null(hgncSymbol)){
+        return(data.frame(foldChange=numeric(0),pValue=numeric(0),nMean=numeric(0),dMean=numeric(0)))
+    }
+    nDataLog = log(1+nData)
+    dDataLog = log(1+dData)
+    result = t.test(nDataLog,dDataLog,paired=TRUE)
+    return(data.frame(foldChange=exp(result$estimate),pValue=result$p.value,nMean=mean(nDataLog),dMean=mean(dDataLog),row.names = c(hgncSymbol)))
 }
 
 runTestOnData <- function (data,normalSampleIndexes,diseaseSampleIndexes,testFunction){
     hgncSymbols = row.names(data)
     normalData = t(data[,normalSampleIndexes])
     diseaseData = t(data[,diseaseSampleIndexes])
-    result = data.frame(foldChange=rep(0,length(hgncSymbols)),pValue=rep(0,length(hgncSymbols)),row.names = hgncSymbols);
-    for(i in 1:length(result$gene_name)){
-        result[i,] = testFunction(normalData[,i],diseaseData[,i])
+    result = testFunction(NULL,NULL,NULL);
+    for(i in 1:length(hgncSymbols)){
+        result=rbind(result,testFunction(normalData[,i],diseaseData[,i],hgncSymbols[i]))
     }
+    row.names(result)=hgncSymbols
+    return(result)
 }
