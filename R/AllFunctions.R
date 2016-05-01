@@ -22,10 +22,8 @@ getUniProtToHGNCSymbolMapping <- function(){
 
 createIGraphObject <- function(geneInteractionList){
     g<-graph.edgelist(as.matrix(geneInteractionList))
-    vmap<-as.data.frame(cbind(HGNCSymbol=V(g)$name))
-    vmap$vertex_id<-as.numeric(row.names(vmap))
-    vmap$indegree<-degree(g,mode = "in")
-    vmap$outdegree<-degree(g,mode = "out")
+    vmap<-data.frame(indegree=degree(g,mode = "in"),outdegree=degree(g,mode = "out"))
+    row.names(vmap)=V(g)$name
     return(list(igraph_object=g,vertex_map=vmap))
 }
 
@@ -156,15 +154,20 @@ runTestOnData <- function (data,normalSampleIndexes,diseaseSampleIndexes,testFun
 }
 
 computePersonalizationVectors <- function (experimentalData,PPIGraph,scoreFunction,scoreFunctionExtraArgs){
-    hgncSymbols = row.names(experimentalData)
-
+    x = data.frame(HGNCSymbol=row.names(experimentalData))
+    y =  data.frame(HGNCSymbol=row.names(PPIGraph$vertex_map))
+    hgncSymbols=merge(x=x,y=y,by="HGNCSymbol")
+    experimentalDataSubset=experimentalData[hgncSymbols,]
+    result=scoreFunction(experimentalDataSubset,scoreFunctionExtraArgs)
     row.names(result)=hgncSymbols
     return(result)
 }
 
-computePageRanks <- function(personalizationVectors,PPIGraph){
+computePageRanks <- function(personalizationVectors,PPIGraph,alpha){
     hgncSymbols = row.names(personalizationVectors)
-
+    npr=page.rank(PPIGraph$igraph_object,personalized = personalizationVectors$normal,damping = alpha)
+    ppr=page.rank(PPIGraph$igraph_object,personalized = personalizationVectors$disease,damping = alpha)
+    result=data.frame(normalPageRank=npr,diseasePageRank=ppr)
     row.names(result)=hgncSymbols
     return(result)
 }
