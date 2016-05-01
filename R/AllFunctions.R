@@ -6,9 +6,18 @@ library(tools)
 
 CONSTANTS<-list(
     uniProt2HGNCDataURL = 'http://www.genenames.org/cgi-bin/download?col=gd_hgnc_id&col=gd_app_sym&col=md_prot_id&status=Approved&status_opt=2&where=&order_by=gd_hgnc_id&format=text&limit=&submit=submit',
-    reactome=list(mitabURL='http://www.reactome.org/download/current/homo_sapiens.mitab.interactions.txt.gz',
-                  downloadedFilename = 'homo_sapiens.mitab.interactions.txt.gz'
-                  )
+    reactome=list(
+        pathways=list(fileURL='http://www.reactome.org/download/current/UniProt2Reactome_All_Levels.txt',
+                      downloadedFilename = 'UniProt2Reactome_All_Levels.txt',
+                      speciesMap=list(HomoSapiens='Homo sapiens')
+        ),
+        interactions=list(
+            HomoSapiens=list(
+                mitabURL='http://www.reactome.org/download/current/homo_sapiens.mitab.interactions.txt.gz',
+                downloadedFilename = 'homo_sapiens.mitab.interactions.txt.gz'
+            )
+        )
+    )
 )
 
 getUniProtToHGNCSymbolMapping <- function(){
@@ -27,9 +36,18 @@ createIGraphObject <- function(geneInteractionList){
     return(list(igraph_object=g,vertex_map=vmap))
 }
 
-downloadReactomeInteractions <- function(data_folder){
-    dFilePath <- file.path(data_folder,CONSTANTS$reactome$downloadedFilename)
-    download.file(CONSTANTS$reactome$mitabURL,dFilePath);
+downloadReactomePathways <- function(data_folder,species){
+    dFilePath <- file.path(data_folder,CONSTANTS$reactome$pathways$downloadedFilename)
+    download.file(CONSTANTS$reactome$pathways$fileURL,dFilePath);
+    pdata=read.csv(dFilePath,sep='\t',header = FALSE,skip = 1,stringsAsFactors = FALSE)
+    hpdata<-subset(pdata,pdata[,6]==CONSTANTS$reactome$pathways$speciesMap[species])[,c(1,2,4)]
+    colnames(hpdata)<-c("uniProtID","reactomeID","reactomeDescription")
+    return(hpdata)
+}
+
+downloadReactomeInteractions <- function(data_folder,species){
+    dFilePath <- file.path(data_folder,CONSTANTS$reactome$interactions$`species`$downloadedFilename)
+    download.file(CONSTANTS$reactome$interactions[species]$mitabURL,dFilePath);
     return(read.csv(gzfile(dFilePath),header=FALSE,sep="\t",skip=1,stringsAsFactors= FALSE));
 }
 
@@ -77,15 +95,18 @@ loadPPIGraphIREF<-function(mitab){
 }
 
 loadPathwayDataReactome <- function(pdata,usmap){
-    hpdata<-subset(pdata,pdata[,6]=='Homo sapiens')[,c(1,2,4)]
-    colnames(hpdata)<-c("uniProtID","reactomeID","reactomeDescription")
-    if(is.null(usmap)){
-        usmap<-getUniProtToHGNCSymbolMapping()
+    memberships=unique(merge(pdata,usmap,by = "uniProtID")[,c(4,2)])
+    pathwayMembership=split(memberships,memberships$reactomeID)
+    pathways<-unique(pdata[,c(2,3)])
+    row.names(pathways)=pathways$reactomeID
+    pathways=pathways[,c("reactomeDescription"),drop=FALSE]
+    listFunction <-function(df){
+        return (df[,c("HGNCSymbol")])
     }
-    memberships=unique(merge(hpdata,usmap,by = "uniProtID")[,c(4,2)])
-    pathways<-unique(hpdata[,c(2,3)])
+    pathwayMembership=lapply(pathwayMembership, listFunction)
+    pathways=pathways[names(pathwayMembership),,drop=FALSE]
     return(list(pathwayInfo=pathways,
-                pathwayMembership=split(memberships,memberships$reactomeID)))
+                pathwayMembership=pathwayMembership))
 }
 
 probeCombinerMean <- function(pls,expdata){
@@ -197,11 +218,21 @@ computePageRanks <- function(personalizationVectors,PPIGraph,alpha){
     pvs=personalizationVectors[row.names(PPIGraph$vertex_map),]
     npr=page.rank(PPIGraph$igraph_object,personalized = pvs$normal,damping = alpha)
     ppr=page.rank(PPIGraph$igraph_object,personalized = pvs$disease,damping = alpha)
-    result=data.frame(normalPageRank=npr,diseasePageRank=ppr)
-    row.names(result)=row.names(personalizationVectors)
+    result=data.frame(normalPageRank=npr$vector,diseasePageRank=ppr$vector)
     return(result)
 }
 
-computePathwayScores <- function(pageRanks,pathwayData,distanceFunction,distanceFunctionExtraArgs){
+meanAbsoluteDeviationDistanceFunction <- function(normalPageRanks,diseasePageRanks,extraArgs){
+    return(data.frame(meanAbsoluteDeviation=sum(abs(diseasePageRanks-normalPageRanks))/length(normalPageRanks)))
+}
 
+KLDivergenceDistanceFunction<- function(normalPageRanks,diseasePageRanks,extraArgs){
+    return(data.frame(KLDivergence=KL.plugin(normalPageRanks,diseasePageRanks)))
+}
+
+computePathwayScores <- function(pageRanks,pathwayMembership,distanceFunction,distanceFunctionExtraArgs){
+    listFunction <- function(item,pageranks,analysis,analysisparam){
+        return(data.frame(analysis(pageranks[item,"normalPageRank"],pageranks[item,"diseasePageRank"],analysisparam),stringsAsFactors = FALSE))
+    }
+    return(do.call("rbind",lapply(pathwayMembership,listFunction,pageranks=pageRanks,analysis=distanceFunction,analysisparam=distanceFunctionExtraArgs)))
 }

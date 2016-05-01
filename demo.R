@@ -1,17 +1,3 @@
-# Hello, world!
-#
-# This is an example function named 'hello'
-# which prints 'Hello, world!'.
-#
-# You can learn more about package authoring with RStudio at:
-#
-#   http://r-pkgs.had.co.nz/
-#
-# Some useful keyboard shortcuts for package authoring:
-#
-#   Build and Reload Package:  'Ctrl + Shift + B'
-#   Check Package:             'Ctrl + Shift + E'
-#   Test Package:              'Ctrl + Shift + T'
 library(iRefR)
 library(GEOquery)
 library(Biobase)
@@ -31,9 +17,17 @@ irefPPIGraph = loadPPIGraphIREF(iref_mitab)
 us=getUniProtToHGNCSymbolMapping();
 reactome_mitab= downloadReactomeInteractions(data_folder="/tmp/")
 reactomePPIGraph=createIGraphObject(subset(unique(mapgraph),A!=B))
-reactome_pdata = read.csv(url('http://www.reactome.org/download/current/UniProt2Reactome_All_Levels.txt'),sep='\t',header = FALSE,skip = 1,stringsAsFactors = FALSE)
+reactome_pdata = downloadReactomePathways("/tmp",'HomoSapiens')
 reactomePathwayData=loadPathwayDataReactome(reactome_pdata,us)
 experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)
 experimentDataTCGA=runTestOnData(tcgaData,1,2,foldChangeFunction,list(exponent=2))
 personalizationVectorsGEO=computePersonalizationVectors(experimentDataGEO,reactomePPIGraph,data.frame(foldChange=1,pValue=1),outdegreeNormalizedFCOneMinusPScoreFunction)
 personalizationVectorsTCGA=computePersonalizationVectors(experimentDataTCGA,reactomePPIGraph,data.frame(foldChange=1),outdegreeNormalizedFCScoreFunction)
+pageRanksGEO=computePageRanks(personalizationVectorsGEO,reactomePPIGraph,0.7)
+pageRanksTCGA=computePageRanks(personalizationVectorsTCGA,reactomePPIGraph,0.7)
+pathwayScoresGEO=computePathwayScores(pageRanksGEO,reactomePathwayData$pathwayMembership,meanAbsoluteDeviationDistanceFunction,list())
+pathwayScoresTCGA=computePathwayScores(pageRanksTCGA,reactomePathwayData$pathwayMembership,meanAbsoluteDeviationDistanceFunction,list())
+resultGEO=cbind(reactomePathwayData$pathwayInfo,pathwayScoresGEO)
+resultTCGA=cbind(reactomePathwayData$pathwayInfo,pathwayScoresTCGA)
+resultGEO=resultGEO[with(resultGEO,order(-meanAbsoluteDeviation)),]
+resultTCGA=resultTCGA[with(resultTCGA,order(-meanAbsoluteDeviation)),]
