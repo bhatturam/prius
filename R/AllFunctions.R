@@ -117,23 +117,39 @@ prepareExpressionData <- function(eset,gpl,combinerFunction){
     return(data)
 }
 
-logPairedTTestFunction <- function(nData,dData,hgncSymbol){
+logPairedTTestFunction <- function(nData,dData,hgncSymbol,extraArgs){
     if(is.null(nData) && is.null(dData) && is.null(hgncSymbol)){
         return(data.frame(foldChange=numeric(0),pValue=numeric(0),nMean=numeric(0),dMean=numeric(0)))
     }
     nDataLog = log(1+nData)
     dDataLog = log(1+dData)
-    result = t.test(nDataLog,dDataLog,paired=TRUE)
-    return(data.frame(foldChange=exp(result$estimate),pValue=result$p.value,nMean=mean(nDataLog),dMean=mean(dDataLog),row.names = c(hgncSymbol)))
+    result = t.test(dDataLog,nDataLog,paired=TRUE)
+    fc=exp(result$estimate)
+    fc[fc<1]=1/fc[fc<1]
+    return(data.frame(foldChange=fc,pValue=result$p.value,nMean=mean(nDataLog),dMean=mean(dDataLog),row.names = c(hgncSymbol)))
 }
 
-runTestOnData <- function (data,normalSampleIndexes,diseaseSampleIndexes,testFunction){
+foldChangeFunction <- function(nData,dData,hgncSymbol,extraArgs){
+    if(is.null(nData) && is.null(dData) && is.null(hgncSymbol)){
+        return(data.frame(foldChange=numeric(0)))
+    }
+    if(extraArgs$exponent==1){
+        fc=dData/nData;
+    }else{
+        fc=dData-nData;
+    }
+    fc=extraArgs$exponent^fc
+    fc[fc<1]=1/fc[fc<1]
+    return(data.frame(foldChange=fc,row.names = c(hgncSymbol)))
+}
+
+runTestOnData <- function (data,normalSampleIndexes,diseaseSampleIndexes,testFunction,testFunctionExtraArgs){
     hgncSymbols = row.names(data)
     normalData = t(data[,normalSampleIndexes])
     diseaseData = t(data[,diseaseSampleIndexes])
     result = testFunction(NULL,NULL,NULL);
     for(i in 1:length(hgncSymbols)){
-        result=rbind(result,testFunction(normalData[,i],diseaseData[,i],hgncSymbols[i]))
+        result=rbind(result,testFunction(normalData[,i],diseaseData[,i],hgncSymbols[i],testFunctionExtraArgs))
     }
     row.names(result)=hgncSymbols
     return(result)
