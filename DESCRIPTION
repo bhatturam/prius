@@ -4,22 +4,25 @@ Title: Affected pathway ranking in differential gene expression analysis
 Version: 0.99.0
 Date: 2016-04-02
 Author: Shailesh Patil, Bharath Venkatesh, Randeep Singh
-Maintainer:  Bharath Venkatesh <bharath.venkatesh85@gmail.com>
-Citation: Patil, S.S., Venkatesh, B. and Singh, R., 2016.
-Depends:  R (>= 3.2.0)
-Suggests: knitr
+Maintainer: Bharath Venkatesh <bharath.venkatesh85@gmail.com>
+Depends:
+    R (>= 3.2.0)
+Suggests:
+    knitr
 VignetteBuilder: knitr
-Imports: sqldf,entropy,reshape2,igraph,GEOquery,Biobase,TCGAbiolinks,org.Hs.eg.db
-From Differentiated Genes to Affected Pathways. bioRxiv, p.038901.
+Imports:
+    sqldf,entropy,reshape2,igraph,GEOquery
 Description: An R package to analyse affected pathways in differential
-expression experiments. The approach is to disturb  each node of a gene-gene
-interaction network proportional to the observed expression from the experiment
-and rank the pathways based on how much they are affected. The package currently supports
-microarray data from Gene Expression Omnibus, PPI data from iRef and Reactome and pathways
-from Reactome.
-biocViews: GeneExpression,DifferentialExpression,Genetics,NetworkEnrichment,GraphAndNetwork,
-Microarray
+    expression experiments. The approach is to disturb each node of a gene-gene
+    interaction network proportional to the observed expression from the experiment
+    and rank the pathways based on how much they are affected. The package currently
+    supports microarray data from Gene Expression Omnibus, PPI data from iRef and
+    Reactome and pathways from Reactome.
+biocViews:
+    GeneExpression,DifferentialExpression,Genetics,NetworkEnrichment,GraphAndNetwork,
+    Microarray
 License: MIT
 URL: https://github.com/bhatturam/prius
 BugReports: https://github.com/bhatturam/prius/issues
 LazyData: TRUE
+RoxygenNote: 5.0.1
