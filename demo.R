@@ -35,3 +35,5 @@ reactome_pdata = read.csv(url('http://www.reactome.org/download/current/UniProt2
 reactomePathwayData=loadPathwayDataReactome(reactome_pdata,us)
 experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)
 experimentDataTCGA=runTestOnData(tcgaData,1,2,foldChangeFunction,list(exponent=2))
+personalizationVectorsGEO=computePersonalizationVectors(experimentDataGEO,reactomePPIGraph,data.frame(foldChange=1,pValue=1),outdegreeNormalizedFCOneMinusPScoreFunction)
+personalizationVectorsTCGA=computePersonalizationVectors(experimentDataTCGA,reactomePPIGraph,data.frame(foldChange=1),outdegreeNormalizedFCScoreFunction)

@@ -124,20 +124,26 @@ logPairedTTestFunction <- function(nData,dData,hgncSymbol,extraArgs){
     result = t.test(dDataLog,nDataLog,paired=TRUE)
     fc=exp(result$estimate)
     fc[fc<1]=1/fc[fc<1]
-    return(data.frame(foldChange=fc,pValue=result$p.value,nMean=mean(nDataLog),dMean=mean(dDataLog),row.names = c(hgncSymbol)))
+    return(data.frame(foldChange=fc,pValue=result$p.value,row.names = c(hgncSymbol)))
 }
 
 foldChangeFunction <- function(nData,dData,hgncSymbol,extraArgs){
     if(is.null(nData) && is.null(dData) && is.null(hgncSymbol)){
         return(data.frame(foldChange=numeric(0)))
     }
-    if(extraArgs$exponent==1){
+    if(is.null(extraArgs$exponent)){
+        exponent=1
+    }else{
+        exponent=extraArgs$exponent
+    }
+    if(exponent==1){
         fc=dData/nData;
     }else{
         fc=dData-nData;
     }
-    fc=extraArgs$exponent^fc
+    fc=exponent^fc
     fc[fc<1]=1/fc[fc<1]
+    fc[is.na(fc)]=1
     return(data.frame(foldChange=fc,row.names = c(hgncSymbol)))
 }
 
@@ -153,22 +159,46 @@ runTestOnData <- function (data,normalSampleIndexes,diseaseSampleIndexes,testFun
     return(result)
 }
 
-computePersonalizationVectors <- function (experimentalData,PPIGraph,scoreFunction,scoreFunctionExtraArgs){
-    x = data.frame(HGNCSymbol=row.names(experimentalData))
-    y =  data.frame(HGNCSymbol=row.names(PPIGraph$vertex_map))
-    hgncSymbols=merge(x=x,y=y,by="HGNCSymbol")
-    experimentalDataSubset=experimentalData[hgncSymbols,]
-    result=scoreFunction(experimentalDataSubset,scoreFunctionExtraArgs)
-    row.names(result)=hgncSymbols
+outdegreeNormalizedFCScoreFunction <- function(experimentalData,PPIGraph,extraArgs){
+    npv=PPIGraph$vertex_map$outdegree/sum(PPIGraph$vertex_map$outdegree)
+    dpv=PPIGraph$vertex_map$outdegree*experimentalData$foldChange
+    dpv=dpv/sum(dpv)
+    result = data.frame(normal=npv,disease=dpv)
+    row.names(result) = row.names(experimentalData)
+    return(result)
+}
+
+outdegreeNormalizedFCOneMinusPScoreFunction <- function(experimentalData,PPIGraph,extraArgs){
+    npv=PPIGraph$vertex_map$outdegree/sum(PPIGraph$vertex_map$outdegree)
+    dpv=PPIGraph$vertex_map$outdegree*experimentalData$foldChange*(1-experimentalData$pValue)
+    dpv=dpv/sum(dpv)
+    result = data.frame(normal=npv,disease=dpv)
+    row.names(result) = row.names(experimentalData)
+    return(result)
+}
+
+computePersonalizationVectors <- function (experimentalData,PPIGraph,defaults,scoreFunction,scoreFunctionExtraArgs){
+    common=intersect(row.names(experimentalData),row.names(PPIGraph$vertex_map))
+    absent=setdiff(row.names(PPIGraph$vertex_map),row.names(experimentalData))
+    if(ncol(experimentalData)==1){
+        experimentalDataSubset=experimentalData[common,1,drop=FALSE]
+        experimentalDataSubset[absent,1]=defaults
+    }else{
+        experimentalDataSubset=experimentalData[common,]
+        experimentalDataSubset[absent,]=defaults
+    }
+    experimentalDataSubset=experimentalDataSubset[row.names(PPIGraph$vertex_map),,drop=FALSE]
+    result=scoreFunction(experimentalDataSubset,PPIGraph,scoreFunctionExtraArgs)
+    row.names(result)=row.names(experimentalDataSubset)
     return(result)
 }
 
 computePageRanks <- function(personalizationVectors,PPIGraph,alpha){
-    hgncSymbols = row.names(personalizationVectors)
-    npr=page.rank(PPIGraph$igraph_object,personalized = personalizationVectors$normal,damping = alpha)
-    ppr=page.rank(PPIGraph$igraph_object,personalized = personalizationVectors$disease,damping = alpha)
+    pvs=personalizationVectors[row.names(PPIGraph$vertex_map),]
+    npr=page.rank(PPIGraph$igraph_object,personalized = pvs$normal,damping = alpha)
+    ppr=page.rank(PPIGraph$igraph_object,personalized = pvs$disease,damping = alpha)
     result=data.frame(normalPageRank=npr,diseasePageRank=ppr)
-    row.names(result)=hgncSymbols
+    row.names(result)=row.names(personalizationVectors)
     return(result)
 }
 
