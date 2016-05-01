@@ -22,7 +22,7 @@ getUniProtToHGNCSymbolMapping <- function(){
 
 createIGraphObject <- function(geneInteractionList){
     g<-graph.edgelist(as.matrix(geneInteractionList))
-    vmap<-as.data.frame(cbind(hgnc=V(g)$name))
+    vmap<-as.data.frame(cbind(HGNCSymbol=V(g)$name))
     vmap$vertex_id<-as.numeric(row.names(vmap))
     vmap$indegree<-degree(g,mode = "in")
     vmap$outdegree<-degree(g,mode = "out")
@@ -153,4 +153,22 @@ runTestOnData <- function (data,normalSampleIndexes,diseaseSampleIndexes,testFun
     }
     row.names(result)=hgncSymbols
     return(result)
+}
+
+computePersonalizationVectors <- function (experimentalData,PPIGraph,scoreFunction,scoreFunctionExtraArgs){
+    hgncSymbols = row.names(experimentalData)
+
+    row.names(result)=hgncSymbols
+    return(result)
+}
+
+computePageRanks <- function(personalizationVectors,PPIGraph){
+    hgncSymbols = row.names(personalizationVectors)
+
+    row.names(result)=hgncSymbols
+    return(result)
+}
+
+computePathwayScores <- function(pageRanks,pathwayData,distanceFunction,distanceFunctionExtraArgs){
+
 }
