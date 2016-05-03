@@ -27,7 +27,9 @@ CONSTANTS <- list(
 #'@export
 #' @references \url{http://www.genenames.org/cgi-bin/download}
 #' @examples
+#' \dontrun{
 #' usmap=getUniProtToHGNCSymbolMapping()
+#' }
 getUniProtToHGNCSymbolMapping <- function() {
     us <- utils::read.csv(
         url(CONSTANTS$uniProt2HGNCDataURL)
@@ -76,19 +78,33 @@ createIGraphObject <- function(geneInteractionList) {
     return(list(igraph_object = g,vertex_map = vmap))
 }
 
-#' Title
+#' Download current Pathway Data from Reactome
 #'
-#' @param data_folder
-#' @param species
+#' Downloads current pathway data (protein-to-pathway mapping) from reactome, saves it in a local directory
+#' and returns a data frame usable by the library. It can reuse downloaded
+#' files if the downloaded folder is passed as an argument
 #'
-#' @return
+#' @param data_folder - The folder where the data should be downloaded
+#' @param species - The species being analysed.
+#'                  Currently only supports the string 'HomoSapiens'
+#'
+#' @return a data frame containing three columns,
+#'  uniProtID, reactomeID, reactomeDescription which stand for the
+#'  protein identifier, pathway identifier and the pathway description
 #' @export
 #'
+#' @references \url{http://www.reactome.org/pages/download-data/}
 #' @examples
-downloadReactomePathways <- function(data_folder,species) {
+#' \dontrun{
+#'      dataFolder <- tempdir()
+#'      pathwayData<-downloadReactomePathways(dataFolder)
+#' }
+downloadReactomePathways <- function(data_folder,species='HomoSapiens') {
     dFilePath <-
         file.path(data_folder,CONSTANTS$reactome$pathways$downloadedFilename)
-    utils::download.file(CONSTANTS$reactome$pathways$fileURL,dFilePath);
+    if(!file.exists(dFilePath)){
+        utils::download.file(CONSTANTS$reactome$pathways$fileURL,dFilePath);
+    }
     pdata <- utils::read.csv(
         dFilePath,sep = '\t',header = FALSE,skip = 1,stringsAsFactors = FALSE
     )
@@ -108,10 +124,12 @@ downloadReactomePathways <- function(data_folder,species) {
 #' @export
 #'
 #' @examples
-downloadReactomeInteractionsMITAB <- function(data_folder,species) {
+downloadReactomeInteractionsMITAB <- function(data_folder,species='HomoSapiens') {
     dFilePath <-
         file.path(data_folder,CONSTANTS$reactome$interactions$`species`$downloadedFilename)
-    utils::download.file(CONSTANTS$reactome$interactions[species]$mitabURL,dFilePath);
+    if(!file.exists(dFilePath)){
+        utils::download.file(CONSTANTS$reactome$interactions[species]$mitabURL,dFilePath);
+    }
     return(utils::read.csv(
         gzfile(dFilePath),header = FALSE,sep = "\t",skip = 1,stringsAsFactors = FALSE
     ));

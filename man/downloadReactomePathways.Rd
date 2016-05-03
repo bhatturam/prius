@@ -2,14 +2,33 @@
 % Please edit documentation in R/AllFunctions.R
 \name{downloadReactomePathways}
 \alias{downloadReactomePathways}
-\title{Title}
+\title{Download current Pathway Data from Reactome}
 \usage{
-downloadReactomePathways(data_folder, species)
+downloadReactomePathways(data_folder, species = "HomoSapiens")
 }
 \arguments{
-\item{species}{}
+\item{data_folder}{- The folder where the data should be downloaded}
+
+\item{species}{- The species being analysed.
+Currently only supports the string 'HomoSapiens'}
+}
+\value{
+a data frame containing three columns,
+ uniProtID, reactomeID, reactomeDescription which stand for the
+ protein identifier, pathway identifier and the pathway description
 }
 \description{
-Title
+Downloads current pathway data (protein-to-pathway mapping) from reactome, saves it in a local directory
+and returns a data frame usable by the library. It can reuse downloaded
+files if the downloaded folder is passed as an argument
+}
+\examples{
+\dontrun{
+     dataFolder <- tempdir()
+     pathwayData<-downloadReactomePathways(dataFolder)
+}
+}
+\references{
+\url{http://www.reactome.org/pages/download-data/}
 }
 

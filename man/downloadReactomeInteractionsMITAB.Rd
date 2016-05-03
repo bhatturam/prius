@@ -4,7 +4,7 @@
 \alias{downloadReactomeInteractionsMITAB}
 \title{Title}
 \usage{
-downloadReactomeInteractionsMITAB(data_folder, species)
+downloadReactomeInteractionsMITAB(data_folder, species = "HomoSapiens")
 }
 \arguments{
 \item{species}{}
