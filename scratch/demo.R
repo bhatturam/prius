@@ -13,10 +13,10 @@ eset = GDS2eSet(gds, GPL=gpl,do.log2=FALSE)
 numPairs = dim(pData(eset))[1]/2
 expressionDataGEO=prepareExpressionData(eset,gpl,probeCombinerMean)
 iref_mitab=get_irefindex(tax_id="9606",data_folder="/tmp/",iref_version = "13.0")
-irefPPIGraph = loadPPIGraphIREF(iref_mitab)
+irefPPIGraph = createIGraphObject(getGeneInteractionListFromIRefMITAB(iref_mitab))
 us=getUniProtToHGNCSymbolMapping();
 reactome_mitab= downloadReactomeInteractions(data_folder="/tmp/")
-reactomePPIGraph=createIGraphObject(subset(unique(mapgraph),A!=B))
+reactomePPIGraph=createIGraphObject(getGeneInteractionListFromReactomeMITAB(reactome_mitab))
 reactome_pdata = downloadReactomePathways("/tmp",'HomoSapiens')
 reactomePathwayData=loadPathwayDataReactome(reactome_pdata,us)
 experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)

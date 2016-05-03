@@ -12,10 +12,12 @@ This function downloads data from genenames.org to create a mapping table
 between Universal Protein Resource (UniProt) Identifiers to HUGO Gene
 Nomenclature Committee; gene symbols - which are the default ID's used in this
 package. This is particularly useful in the case of reactome data, in which
-interactions as well as pathway membership use UniProt ID's. Refer <a
-href="http://www.genenames.org/cgi-bin/download">here</a> for more information
+interactions as well as pathway membership use UniProt ID's.
 }
 \examples{
 usmap=getUniProtToHGNCSymbolMapping()
+}
+\references{
+\url{http://www.genenames.org/cgi-bin/download}
 }
 

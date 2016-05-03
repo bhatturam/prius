@@ -11,7 +11,7 @@ Suggests:
     knitr
 VignetteBuilder: knitr
 Imports:
-    sqldf,entropy,reshape2,igraph,GEOquery
+    sqldf,entropy,igraph,stringr,GEOquery,Biobase
 Description: An R package to analyse affected pathways in differential
     expression experiments. The approach is to disturb each node of a gene-gene
     interaction network proportional to the observed expression from the experiment
@@ -21,7 +21,7 @@ Description: An R package to analyse affected pathways in differential
 biocViews:
     GeneExpression,DifferentialExpression,Genetics,NetworkEnrichment,GraphAndNetwork,
     Microarray
-License: MIT
+License: MIT + file LICENSE
 URL: https://github.com/bhatturam/prius
 BugReports: https://github.com/bhatturam/prius/issues
 LazyData: TRUE

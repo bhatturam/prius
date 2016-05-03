@@ -20,37 +20,76 @@ CONSTANTS <- list(
 #'between Universal Protein Resource (UniProt) Identifiers to HUGO Gene
 #'Nomenclature Committee; gene symbols - which are the default ID's used in this
 #'package. This is particularly useful in the case of reactome data, in which
-#'interactions as well as pathway membership use UniProt ID's. Refer <a
-#'href="http://www.genenames.org/cgi-bin/download">here</a> for more information
+#'interactions as well as pathway membership use UniProt ID's.
+#'
 #'
 #'
 #'@export
-#'
+#' @references \url{http://www.genenames.org/cgi-bin/download}
 #' @examples
 #' usmap=getUniProtToHGNCSymbolMapping()
 getUniProtToHGNCSymbolMapping <- function() {
-    us <- read.csv(
+    us <- utils::read.csv(
         url(CONSTANTS$uniProt2HGNCDataURL)
         ,sep = "\t",header = FALSE,skip = 1,stringsAsFactors = FALSE
     );
-    us <- subset(us[,c(2,3)],V3 != '')
+    us <- subset(us[,c(2,3)],us$V3 != '')
     colnames(us) <- c('HGNCSymbol','uniProtID')
     return(us)
 }
 
+#' Create graph object from gene interaction list
+#'
+#' Convert a data frame containing the gene interaction list into
+#' a form usable by the other functions in the library. This is just
+#' a wrapper around the igraph graph.edgelist function, which creates
+#' and returns an igraph object with a data frame containing the in and
+#' outdegrees.
+#'
+#'
+#'
+#' @param geneInteractionList - a data frame that contains the gene interaction
+#'                              graph in two columns, the first being
+#'                              the source HGNCSymbol and the second being the
+#'                              targer HGNCSymbol of an. interaction
+#'
+#' @return A list containing igraph_object - the igraph object and
+#'                           vertex_map - a frame containing node attributes
+#'                           currently indegree and outdegree
+#' @export
+#'
+#' @references \url{http://igraph.org/r/doc/graph_from_edgelist.html}
+#' @seealso \code{\link{getGeneInteractionListFromReactomeMITAB}}
+#'
+#' @examples
+#' \dontrun{
+#'      mitab <- downloadReactomeInteractions(data_folder="/tmp/")
+#'      geneInteractionList <- getGeneInteractionListFromReactomeMITAB(mitab)
+#'      ppiGraph<-createIGraphObject(geneInteractionList)
+#' }
+#'
 createIGraphObject <- function(geneInteractionList) {
-    g <- graph.edgelist(as.matrix(geneInteractionList))
+    g <- igraph::graph.edgelist(as.matrix(geneInteractionList))
     vmap <-
-        data.frame(indegree = degree(g,mode = "in"),outdegree = degree(g,mode = "out"))
-    row.names(vmap) = V(g)$name
+        data.frame(indegree = igraph::degree(g,mode = "in"),outdegree = igraph::degree(g,mode = "out"))
+    row.names(vmap) <- igraph::V(g)$name
     return(list(igraph_object = g,vertex_map = vmap))
 }
 
+#' Title
+#'
+#' @param data_folder
+#' @param species
+#'
+#' @return
+#' @export
+#'
+#' @examples
 downloadReactomePathways <- function(data_folder,species) {
     dFilePath <-
         file.path(data_folder,CONSTANTS$reactome$pathways$downloadedFilename)
-    download.file(CONSTANTS$reactome$pathways$fileURL,dFilePath);
-    pdata = read.csv(
+    utils::download.file(CONSTANTS$reactome$pathways$fileURL,dFilePath);
+    pdata <- utils::read.csv(
         dFilePath,sep = '\t',header = FALSE,skip = 1,stringsAsFactors = FALSE
     )
     hpdata <-
@@ -60,37 +99,64 @@ downloadReactomePathways <- function(data_folder,species) {
     return(hpdata)
 }
 
-downloadReactomeInteractions <- function(data_folder,species) {
+#' Title
+#'
+#' @param data_folder
+#' @param species
+#'
+#' @return
+#' @export
+#'
+#' @examples
+downloadReactomeInteractionsMITAB <- function(data_folder,species) {
     dFilePath <-
         file.path(data_folder,CONSTANTS$reactome$interactions$`species`$downloadedFilename)
-    download.file(CONSTANTS$reactome$interactions[species]$mitabURL,dFilePath);
-    return(read.csv(
+    utils::download.file(CONSTANTS$reactome$interactions[species]$mitabURL,dFilePath);
+    return(utils::read.csv(
         gzfile(dFilePath),header = FALSE,sep = "\t",skip = 1,stringsAsFactors = FALSE
     ));
 }
 
-loadPPIGraphReactome <- function(mitab,usmap) {
+#' Title
+#'
+#' @param mitab
+#' @param usmap
+#'
+#' @return
+#' @export
+#'
+#' @examples
+getGeneInteractionListFromReactomeMITAB <- function(mitab,usmap) {
     idata <- mitab[,c(1,2)]
     idata[,1] <- gsub('uniprotkb:','',gsub('-[0-9]','',idata[,1]));
     idata[,2] <- gsub('uniprotkb:','',gsub('-[0-9]','',idata[,2]));
     colnames(idata) <- c("aup","bup")
-    idata <- subset(idata,aup != bup);
-    mapgraphA = merge(
+    idata <- subset(idata,idata$aup != idata$bup);
+    mapgraphA <- merge(
         x = idata,y = usmap,by.x = "aup",by.y = "uniProtID"
     )[,c(3,2)]
-    mapgraph = merge(
+    mapgraph <- merge(
         x = mapgraphA,y = usmap,by.x = "bup",by.y = "uniProtID"
     )[,c(2,3)]
-    colnames(mapgraph) = c("A","B")
-    return(createIGraphObject(subset(unique(mapgraph),A != B)))
+    colnames(mapgraph) <- c("A","B")
+    geneInteractionList <- subset(unique(mapgraph),mapgraph$A != mapgraph$B)
+    return(geneInteractionList)
 }
 
-loadPPIGraphIREF <- function(mitab) {
+#' Title
+#'
+#' @param mitab
+#'
+#' @return
+#' @export
+#'
+#' @examples
+getGeneInteractionListFromIRefMITAB <- function(mitab) {
     factori <- sapply(mitab, is.factor)
     mitab[factori] <- lapply(mitab[factori], as.character)
     idata <- unique(subset(mitab[,c('aliasA','aliasB')],
                            (
-                               str_count(aliasA,'hgnc') == 1 & str_count(aliasB,'hgnc') == 1
+                               stringr::str_count(mitab$aliasA,'hgnc') == 1 & stringr::str_count(mitab$aliasB,'hgnc') == 1
                            )))
     idata$aliasA <- gsub('hgnc:','',
                          grep('hgnc:',
@@ -106,16 +172,16 @@ loadPPIGraphIREF <- function(mitab) {
     colnames(idata) <- c("A","B")
     idataE <- unique(subset(mitab[,c('aliasA','aliasB')],
                             (
-                                str_count(aliasA,'hgnc') > 1 & str_count(aliasB,'hgnc') > 1
+                                stringr::str_count(mitab$aliasA,'hgnc') > 1 & stringr::str_count(mitab$aliasB,'hgnc') > 1
                             )))
     list_function <-
         function(cvec) {
             return(gsub('hgnc:','',grep('hgnc:',cvec,value = TRUE)))
         }
     idataE$aliasA <-
-        lapply(str_split(idataE$aliasA,'\\|'),list_function)
+        lapply(stringr::str_split(idataE$aliasA,'\\|'),list_function)
     idataE$aliasB <-
-        lapply(str_split(idataE$aliasB,'\\|'),list_function)
+        lapply(stringr::str_split(idataE$aliasB,'\\|'),list_function)
     idataES <- do.call(rbind,apply(idataE,1,
                                    function(item) {
                                        return(merge(
@@ -126,11 +192,19 @@ loadPPIGraphIREF <- function(mitab) {
                                        ))
                                    }))
     colnames(idataES) <- c("A","B")
-    return(createIGraphObject(subset(unique(
-        rbind(idata,idataES)
-    ),A != B)))
+    geneInteractionList<-unique(rbind(idata,idataES))
+    return(subset(geneInteractionList,geneInteractionList$A != geneInteractionList$B))
 }
 
+#' Title
+#'
+#' @param pdata
+#' @param usmap
+#'
+#' @return
+#' @export
+#'
+#' @examples
 loadPathwayDataReactome <- function(pdata,usmap) {
     memberships = unique(merge(pdata,usmap,by = "uniProtID")[,c(4,2)])
     pathwayMembership = split(memberships,memberships$reactomeID)
@@ -146,6 +220,15 @@ loadPathwayDataReactome <- function(pdata,usmap) {
                 pathwayMembership = pathwayMembership))
 }
 
+#' Title
+#'
+#' @param pls
+#' @param expdata
+#'
+#' @return
+#' @export
+#'
+#' @examples
 probeCombinerMean <- function(pls,expdata) {
     probes = unlist(strsplit(pls,','))
     if (length(probes) > 1) {
@@ -155,29 +238,63 @@ probeCombinerMean <- function(pls,expdata) {
     }
 }
 
-prepareExpressionData <- function(eset,gpl,combinerFunction) {
-    expdata = exprs(eset)
+#' Title
+#'
+#' @param probeName
+#'
+#' @return
+#' @export
+#'
+#' @examples
+defaultProbeSelector <- function(probeName){
+    return( grepl("[0-9]+_at", probeName) |
+                grepl("[0-9]+_a_at", probeName))
+}
+
+#' Title
+#'
+#' @param eset
+#' @param gpl
+#' @param selectorFunction
+#' @param combinerFunction
+#'
+#' @return
+#' @export
+#'
+#' @examples
+prepareExpressionData <- function(eset,gpl,selectorFunction,combinerFunction) {
+    expdata <- Biobase::exprs(eset)
     dataRowNames <- data.frame(probeName = row.names(expdata))
-    hgnc2probe <- Table(gpl)[,c("ID","Gene Symbol")]
+    hgnc2probe <- GEOquery::Table(gpl)[,c("ID","Gene Symbol")]
     names(hgnc2probe) <- c("probeName","HGNCSymbol")
     selectedProbes <- subset(hgnc2probe,
                              (
-                                 grepl("[0-9]+_at", probeName) |
-                                     grepl("[0-9]+_a_at", probeName)
-                             ) & !grepl(" ",HGNCSymbol))
+                                 selectorFunction(hgnc2probe$probeName)
+                             ) & !grepl(" ",hgnc2probe$HGNCSymbol))
     selectedProbes <-
         merge(x = selectedProbes,y = dataRowNames,by = "probeName")[,c(1,2)]
-    hgncProbeList =  sqldf(
+    hgncProbeList <-  sqldf::sqldf(
         "select a.HGNCSymbol, group_concat(a.probeName) as
         probes from hgnc2probe a inner join selectedProbes b
         on b.probeName=a.probeName where a.HGNCSymbol != ''
         and a.HGNCSymbol is not null and a.probeName is not null group by a.HGNCSymbol"
     )
-    data = t(sapply(hgncProbeList$probes,combinerFunction,expdata))
-    row.names(data) = hgncProbeList$HGNCSymbol
+    data <- t(sapply(hgncProbeList$probes,combinerFunction,expdata))
+    row.names(data) <- hgncProbeList$HGNCSymbol
     return(data)
 }
 
+#' Title
+#'
+#' @param nData
+#' @param dData
+#' @param hgncSymbol
+#' @param extraArgs
+#'
+#' @return
+#' @export
+#'
+#' @examples
 logPairedTTestFunction <-
     function(nData,dData,hgncSymbol,extraArgs) {
         if (is.null(nData) && is.null(dData) && is.null(hgncSymbol)) {
@@ -189,7 +306,7 @@ logPairedTTestFunction <-
         }
         nDataLog = log(1 + nData)
         dDataLog = log(1 + dData)
-        result = t.test(dDataLog,nDataLog,paired = TRUE)
+        result = stats::t.test(dDataLog,nDataLog,paired = TRUE)
         fc = exp(result$estimate)
         fc[fc < 1] = 1 / fc[fc < 1]
         return(data.frame(
@@ -197,6 +314,17 @@ logPairedTTestFunction <-
         ))
     }
 
+#' Title
+#'
+#' @param nData
+#' @param dData
+#' @param hgncSymbol
+#' @param extraArgs
+#'
+#' @return
+#' @export
+#'
+#' @examples
 foldChangeFunction <- function(nData,dData,hgncSymbol,extraArgs) {
     if (is.null(nData) && is.null(dData) && is.null(hgncSymbol)) {
         return(data.frame(foldChange = numeric(0)))
@@ -217,6 +345,18 @@ foldChangeFunction <- function(nData,dData,hgncSymbol,extraArgs) {
     return(data.frame(foldChange = fc,row.names = c(hgncSymbol)))
 }
 
+#' Title
+#'
+#' @param data
+#' @param normalSampleIndexes
+#' @param diseaseSampleIndexes
+#' @param testFunction
+#' @param testFunctionExtraArgs
+#'
+#' @return
+#' @export
+#'
+#' @examples
 runTestOnData <-
     function (data,normalSampleIndexes,diseaseSampleIndexes,testFunction,testFunctionExtraArgs) {
         hgncSymbols = row.names(data)
@@ -234,6 +374,16 @@ runTestOnData <-
         return(result)
     }
 
+#' Title
+#'
+#' @param experimentalData
+#' @param PPIGraph
+#' @param extraArgs
+#'
+#' @return
+#' @export
+#'
+#' @examples
 outdegreeNormalizedFCScoreFunction <-
     function(experimentalData,PPIGraph,extraArgs) {
         npv = PPIGraph$vertex_map$outdegree / sum(PPIGraph$vertex_map$outdegree)
@@ -244,6 +394,16 @@ outdegreeNormalizedFCScoreFunction <-
         return(result)
     }
 
+#' Title
+#'
+#' @param experimentalData
+#' @param PPIGraph
+#' @param extraArgs
+#'
+#' @return
+#' @export
+#'
+#' @examples
 outdegreeNormalizedFCOneMinusPScoreFunction <-
     function(experimentalData,PPIGraph,extraArgs) {
         npv = PPIGraph$vertex_map$outdegree / sum(PPIGraph$vertex_map$outdegree)
@@ -255,6 +415,18 @@ outdegreeNormalizedFCOneMinusPScoreFunction <-
         return(result)
     }
 
+#' Title
+#'
+#' @param experimentalData
+#' @param PPIGraph
+#' @param defaults
+#' @param scoreFunction
+#' @param scoreFunctionExtraArgs
+#'
+#' @return
+#' @export
+#'
+#' @examples
 computePersonalizationVectors <-
     function (experimentalData,PPIGraph,defaults,scoreFunction,scoreFunctionExtraArgs) {
         common = intersect(row.names(experimentalData),row.names(PPIGraph$vertex_map))
@@ -273,15 +445,35 @@ computePersonalizationVectors <-
         return(result)
     }
 
+#' Title
+#'
+#' @param personalizationVectors
+#' @param PPIGraph
+#' @param alpha
+#'
+#' @return
+#' @export
+#'
+#' @examples
 computePageRanks <-
     function(personalizationVectors,PPIGraph,alpha) {
         pvs = personalizationVectors[row.names(PPIGraph$vertex_map),]
-        npr = page.rank(PPIGraph$igraph_object,personalized = pvs$normal,damping = alpha)
-        ppr = page.rank(PPIGraph$igraph_object,personalized = pvs$disease,damping = alpha)
+        npr = igraph::page.rank(PPIGraph$igraph_object,personalized = pvs$normal,damping = alpha)
+        ppr = igraph::page.rank(PPIGraph$igraph_object,personalized = pvs$disease,damping = alpha)
         result = data.frame(normalPageRank = npr$vector,diseasePageRank = ppr$vector)
         return(result)
     }
 
+#' Title
+#'
+#' @param normalPageRanks
+#' @param diseasePageRanks
+#' @param extraArgs
+#'
+#' @return
+#' @export
+#'
+#' @examples
 meanAbsoluteDeviationDistanceFunction <-
     function(normalPageRanks,diseasePageRanks,extraArgs) {
         return(data.frame(meanAbsoluteDeviation = sum(
@@ -289,13 +481,34 @@ meanAbsoluteDeviationDistanceFunction <-
         ) / length(normalPageRanks)))
     }
 
+#' Title
+#'
+#' @param normalPageRanks
+#' @param diseasePageRanks
+#' @param extraArgs
+#'
+#' @return
+#' @export
+#'
+#' @examples
 KLDivergenceDistanceFunction <-
     function(normalPageRanks,diseasePageRanks,extraArgs) {
-        return(data.frame(KLDivergence = KL.plugin(normalPageRanks,diseasePageRanks)))
+        return(data.frame(KLDivergence = entropy::KL.plugin(normalPageRanks,diseasePageRanks)))
     }
 
 computePathwayScores <-
     function(pageRanks,pathwayMembership,distanceFunction,distanceFunctionExtraArgs) {
+#' Title
+#'
+#' @param item
+#' @param pageranks
+#' @param analysis
+#' @param analysisparam
+#'
+#' @return
+#' @export
+#'
+#' @examples
         listFunction <- function(item,pageranks,analysis,analysisparam) {
             return(data.frame(
                 analysis(pageranks[item,"normalPageRank"],pageranks[item,"diseasePageRank"],analysisparam),stringsAsFactors = FALSE
