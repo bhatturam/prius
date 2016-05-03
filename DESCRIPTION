@@ -8,7 +8,7 @@ Maintainer: Bharath Venkatesh <bharath.venkatesh85@gmail.com>
 Depends:
     R (>= 3.2.0)
 Suggests:
-    knitr
+    iRefR,TCGAbiolinks,knitr
 VignetteBuilder: knitr
 Imports:
     sqldf,entropy,igraph,stringr,GEOquery,Biobase

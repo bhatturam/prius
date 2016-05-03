@@ -8,7 +8,7 @@ computePathwayScores(pageRanks, pathwayMembership, distanceFunction,
   distanceFunctionExtraArgs)
 }
 \arguments{
-\item{analysisparam}{}
+\item{distanceFunctionExtraArgs}{}
 }
 \description{
 Title

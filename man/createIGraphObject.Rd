@@ -4,31 +4,32 @@
 \alias{createIGraphObject}
 \title{Create graph object from gene interaction list}
 \usage{
-createIGraphObject(geneInteractionList)
+createIGraphObject(geneInteractions)
 }
 \arguments{
-\item{geneInteractionList}{- a data frame that contains the gene interaction
-graph in two columns, the first being
-the source HGNCSymbol and the second being the
-targer HGNCSymbol of an. interaction}
+\item{geneInteractions}{- a data frame that contains the gene interaction
+graph in two columns, the first being the source HGNCSymbol and the second
+being the target HGNCSymbol of an interaction. See
+\code{\link{getGeneInteractionsFromReactomeMITAB}},
+\code{\link{getGeneInteractionsFromIRefMITAB}} for more details}
 }
 \value{
-A list containing igraph_object - the igraph object and
-                          vertex_map - a frame containing node attributes
-                          currently indegree and outdegree
+A list containing igraph_object - the igraph object and vertex_map -
+  a frame containing node attributes currently indegree and outdegree
 }
 \description{
-Convert a data frame containing the gene interaction list into
-a form usable by the other functions in the library. This is just
-a wrapper around the igraph graph.edgelist function, which creates
-and returns an igraph object with a data frame containing the in and
-outdegrees.
+Convert a data frame containing the gene interaction list into a form usable
+by the other functions in the library. This is just a wrapper around the
+igraph graph.edgelist function, which creates and returns an igraph object
+with a data frame containing the in and outdegrees.
 }
 \examples{
 \dontrun{
-     mitab <- downloadReactomeInteractions(data_folder="/tmp/")
-     geneInteractionList <- getGeneInteractionListFromReactomeMITAB(mitab)
-     ppiGraph<-createIGraphObject(geneInteractionList)
+     data_folder=tempdir()
+     usmap<-getUniProtToHGNCSymbolMapping(data_folder)
+     mitab <- downloadReactomeInteractionsMITAB(data_folder)
+     geneInteraction <- getGeneInteractionListFromReactomeMITAB(mitab,usmap)
+     ppiGraph<-createIGraphObject(geneInteraction)
 }
 
 }
@@ -36,6 +37,7 @@ outdegrees.
 \url{http://igraph.org/r/doc/graph_from_edgelist.html}
 }
 \seealso{
-\code{\link{getGeneInteractionListFromReactomeMITAB}}
+\code{\link{getGeneInteractionsromReactomeMITAB}},
+  \code{\link{getGeneInteractionsFromIRefMITAB}}
 }
 

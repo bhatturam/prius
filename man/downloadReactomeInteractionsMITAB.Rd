@@ -2,14 +2,34 @@
 % Please edit documentation in R/AllFunctions.R
 \name{downloadReactomeInteractionsMITAB}
 \alias{downloadReactomeInteractionsMITAB}
-\title{Title}
+\title{Download PPI Reactions from Reactome in MITAB format}
 \usage{
 downloadReactomeInteractionsMITAB(data_folder, species = "HomoSapiens")
 }
 \arguments{
-\item{species}{}
+\item{data_folder}{- The folder where the data resides, or where it should be
+downloaded if it doesnt exist}
+
+\item{species}{- The species being analysed. Currently only supports the
+string 'HomoSapiens'}
+}
+\value{
+a data frame that results when a mitab file is read
 }
 \description{
-Title
+Downloads current PPI data (protein-to-protein interactions) in MITAB format
+from reactome, saves it in a local directory and returns a data frame usable
+by the library. It can reuse downloaded files if the downloaded folder is
+passed as an argument
+}
+\examples{
+\dontrun{
+     data_folder <- tempdir()
+     reactomeMITAB<-downloadReactomeInteractionsMITAB(data_folder)
+}
+}
+\references{
+\url{http://www.reactome.org/pages/download-data/},
+  \url{http://www.psidev.info/groups/molecular-interactions}
 }
 

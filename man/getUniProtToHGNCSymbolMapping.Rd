@@ -5,17 +5,25 @@
 \title{Get a mapping table between UniProt ID's and HGNC Gene Symbols from
 genenames.org}
 \usage{
-getUniProtToHGNCSymbolMapping()
+getUniProtToHGNCSymbolMapping(data_folder)
+}
+\arguments{
+\item{data_folder}{- The folder where the data resides, or
+where it should be downloaded if it doesnt exist}
 }
 \description{
 This function downloads data from genenames.org to create a mapping table
 between Universal Protein Resource (UniProt) Identifiers to HUGO Gene
 Nomenclature Committee; gene symbols - which are the default ID's used in this
 package. This is particularly useful in the case of reactome data, in which
-interactions as well as pathway membership use UniProt ID's.
+interactions as well as pathway membership use UniProt ID's. It can reuse
+downloaded files if the downloaded folder is passed as an argument
 }
 \examples{
-usmap=getUniProtToHGNCSymbolMapping()
+\dontrun{
+data_folder<-tempdir()
+usmap<-getUniProtToHGNCSymbolMapping(data_folder)
+}
 }
 \references{
 \url{http://www.genenames.org/cgi-bin/download}

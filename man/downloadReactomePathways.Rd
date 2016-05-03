@@ -7,20 +7,22 @@
 downloadReactomePathways(data_folder, species = "HomoSapiens")
 }
 \arguments{
-\item{data_folder}{- The folder where the data should be downloaded}
+\item{data_folder}{- The folder where the data resides, or where it should be
+downloaded if it doesnt exist}
 
-\item{species}{- The species being analysed.
-Currently only supports the string 'HomoSapiens'}
+\item{species}{- The species being analysed. Currently only supports the
+string 'HomoSapiens'}
 }
 \value{
-a data frame containing three columns,
- uniProtID, reactomeID, reactomeDescription which stand for the
- protein identifier, pathway identifier and the pathway description
+a data frame containing three columns, uniProtID, reactomeID,
+  reactomeDescription which stand for the protein identifier, pathway
+  identifier and the pathway description
 }
 \description{
-Downloads current pathway data (protein-to-pathway mapping) from reactome, saves it in a local directory
-and returns a data frame usable by the library. It can reuse downloaded
-files if the downloaded folder is passed as an argument
+Downloads current pathway data (protein-to-pathway mapping) from reactome,
+saves it in a local directory and returns a data frame usable by the library.
+It can reuse downloaded files if the downloaded folder is passed as an
+argument
 }
 \examples{
 \dontrun{

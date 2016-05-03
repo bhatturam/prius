@@ -1,5 +1,8 @@
 CONSTANTS <- list(
-    uniProt2HGNCDataURL = 'http://www.genenames.org/cgi-bin/download?col=gd_hgnc_id&col=gd_app_sym&col=md_prot_id&status=Approved&status_opt=2&where=&order_by=gd_hgnc_id&format=text&limit=&submit=submit',
+    uniProt2HGNC = list(
+                fileURL='http://www.genenames.org/cgi-bin/download?col=gd_hgnc_id&col=gd_app_sym&col=md_prot_id&status=Approved&status_opt=2&where=&order_by=gd_hgnc_id&format=text&limit=&submit=submit',
+                downloadedFilename='uniProt2HGNC.csv'
+    ),
     reactome = list(
         pathways = list(
             fileURL = 'http://www.reactome.org/download/current/UniProt2Reactome_All_Levels.txt',
@@ -7,8 +10,9 @@ CONSTANTS <- list(
             speciesMap = list(HomoSapiens = 'Homo sapiens')
         ),
         interactions = list(
-            HomoSapiens = list(mitabURL = 'http://www.reactome.org/download/current/homo_sapiens.mitab.interactions.txt.gz',
-                               downloadedFilename = 'homo_sapiens.mitab.interactions.txt.gz')
+            HomoSapiens = list(
+                mitabURL = 'http://www.reactome.org/download/current/homo_sapiens.mitab.interactions.txt.gz',
+                downloadedFilename = 'homo_sapiens.mitab.interactions.txt.gz')
         )
     )
 )
@@ -20,19 +24,27 @@ CONSTANTS <- list(
 #'between Universal Protein Resource (UniProt) Identifiers to HUGO Gene
 #'Nomenclature Committee; gene symbols - which are the default ID's used in this
 #'package. This is particularly useful in the case of reactome data, in which
-#'interactions as well as pathway membership use UniProt ID's.
+#'interactions as well as pathway membership use UniProt ID's. It can reuse
+#'downloaded files if the downloaded folder is passed as an argument
 #'
-#'
+#'@param data_folder - The folder where the data resides, or
+#'                     where it should be downloaded if it doesnt exist
 #'
 #'@export
 #' @references \url{http://www.genenames.org/cgi-bin/download}
 #' @examples
 #' \dontrun{
-#' usmap=getUniProtToHGNCSymbolMapping()
+#' data_folder<-tempdir()
+#' usmap<-getUniProtToHGNCSymbolMapping(data_folder)
 #' }
-getUniProtToHGNCSymbolMapping <- function() {
+getUniProtToHGNCSymbolMapping <- function(data_folder) {
+    dFilePath <-
+        file.path(data_folder,CONSTANTS$uniProt2HGNC$downloadedFilename)
+    if(!file.exists(dFilePath)){
+        utils::download.file(CONSTANTS$uniProt2HGNC$fileURL,dFilePath);
+    }
     us <- utils::read.csv(
-        url(CONSTANTS$uniProt2HGNCDataURL)
+        dFilePath
         ,sep = "\t",header = FALSE,skip = 1,stringsAsFactors = FALSE
     );
     us <- subset(us[,c(2,3)],us$V3 != '')
@@ -42,55 +54,60 @@ getUniProtToHGNCSymbolMapping <- function() {
 
 #' Create graph object from gene interaction list
 #'
-#' Convert a data frame containing the gene interaction list into
-#' a form usable by the other functions in the library. This is just
-#' a wrapper around the igraph graph.edgelist function, which creates
-#' and returns an igraph object with a data frame containing the in and
-#' outdegrees.
+#' Convert a data frame containing the gene interaction list into a form usable
+#' by the other functions in the library. This is just a wrapper around the
+#' igraph graph.edgelist function, which creates and returns an igraph object
+#' with a data frame containing the in and outdegrees.
 #'
 #'
 #'
-#' @param geneInteractionList - a data frame that contains the gene interaction
-#'                              graph in two columns, the first being
-#'                              the source HGNCSymbol and the second being the
-#'                              targer HGNCSymbol of an. interaction
+#' @param geneInteractions - a data frame that contains the gene interaction
+#'   graph in two columns, the first being the source HGNCSymbol and the second
+#'   being the target HGNCSymbol of an interaction. See
+#'   \code{\link{getGeneInteractionsFromReactomeMITAB}},
+#'   \code{\link{getGeneInteractionsFromIRefMITAB}} for more details
 #'
-#' @return A list containing igraph_object - the igraph object and
-#'                           vertex_map - a frame containing node attributes
-#'                           currently indegree and outdegree
+#' @return A list containing igraph_object - the igraph object and vertex_map -
+#'   a frame containing node attributes currently indegree and outdegree
 #' @export
 #'
 #' @references \url{http://igraph.org/r/doc/graph_from_edgelist.html}
-#' @seealso \code{\link{getGeneInteractionListFromReactomeMITAB}}
+#' @seealso \code{\link{getGeneInteractionsromReactomeMITAB}},
+#'   \code{\link{getGeneInteractionsFromIRefMITAB}}
 #'
 #' @examples
 #' \dontrun{
-#'      mitab <- downloadReactomeInteractions(data_folder="/tmp/")
-#'      geneInteractionList <- getGeneInteractionListFromReactomeMITAB(mitab)
-#'      ppiGraph<-createIGraphObject(geneInteractionList)
+#'      data_folder=tempdir()
+#'      usmap<-getUniProtToHGNCSymbolMapping(data_folder)
+#'      mitab <- downloadReactomeInteractionsMITAB(data_folder)
+#'      geneInteraction <- getGeneInteractionListFromReactomeMITAB(mitab,usmap)
+#'      ppiGraph<-createIGraphObject(geneInteraction)
 #' }
 #'
-createIGraphObject <- function(geneInteractionList) {
-    g <- igraph::graph.edgelist(as.matrix(geneInteractionList))
+createIGraphObject <- function(geneInteractions) {
+    g <- igraph::graph.edgelist(as.matrix(geneInteractions))
     vmap <-
-        data.frame(indegree = igraph::degree(g,mode = "in"),outdegree = igraph::degree(g,mode = "out"))
+        data.frame(indegree = igraph::degree(g,mode = "in"),
+                   outdegree = igraph::degree(g,mode = "out"))
     row.names(vmap) <- igraph::V(g)$name
     return(list(igraph_object = g,vertex_map = vmap))
 }
 
 #' Download current Pathway Data from Reactome
 #'
-#' Downloads current pathway data (protein-to-pathway mapping) from reactome, saves it in a local directory
-#' and returns a data frame usable by the library. It can reuse downloaded
-#' files if the downloaded folder is passed as an argument
+#' Downloads current pathway data (protein-to-pathway mapping) from reactome,
+#' saves it in a local directory and returns a data frame usable by the library.
+#' It can reuse downloaded files if the downloaded folder is passed as an
+#' argument
 #'
-#' @param data_folder - The folder where the data should be downloaded
-#' @param species - The species being analysed.
-#'                  Currently only supports the string 'HomoSapiens'
+#' @param data_folder - The folder where the data resides, or where it should be
+#'   downloaded if it doesnt exist
+#' @param species - The species being analysed. Currently only supports the
+#'   string 'HomoSapiens'
 #'
-#' @return a data frame containing three columns,
-#'  uniProtID, reactomeID, reactomeDescription which stand for the
-#'  protein identifier, pathway identifier and the pathway description
+#' @return a data frame containing three columns, uniProtID, reactomeID,
+#'   reactomeDescription which stand for the protein identifier, pathway
+#'   identifier and the pathway description
 #' @export
 #'
 #' @references \url{http://www.reactome.org/pages/download-data/}
@@ -109,42 +126,72 @@ downloadReactomePathways <- function(data_folder,species='HomoSapiens') {
         dFilePath,sep = '\t',header = FALSE,skip = 1,stringsAsFactors = FALSE
     )
     hpdata <-
-        subset(pdata,pdata[,6] == CONSTANTS$reactome$pathways$speciesMap[species])[,c(1,2,4)]
+        subset(pdata,
+               pdata[,6] == CONSTANTS$reactome$pathways$speciesMap[species]
+               )[,c(1,2,4)]
     colnames(hpdata) <-
         c("uniProtID","reactomeID","reactomeDescription")
     return(hpdata)
 }
 
-#' Title
+#' Download PPI Reactions from Reactome in MITAB format
 #'
-#' @param data_folder
-#' @param species
+#' Downloads current PPI data (protein-to-protein interactions) in MITAB format
+#' from reactome, saves it in a local directory and returns a data frame usable
+#' by the library. It can reuse downloaded files if the downloaded folder is
+#' passed as an argument
 #'
-#' @return
+#' @param data_folder - The folder where the data resides, or where it should be
+#'   downloaded if it doesnt exist
+#' @param species - The species being analysed. Currently only supports the
+#'   string 'HomoSapiens'
+#'
+#' @return a data frame that results when a mitab file is read
 #' @export
-#'
+#' @references \url{http://www.reactome.org/pages/download-data/},
+#'   \url{http://www.psidev.info/groups/molecular-interactions}
 #' @examples
-downloadReactomeInteractionsMITAB <- function(data_folder,species='HomoSapiens') {
+#' \dontrun{
+#'      data_folder <- tempdir()
+#'      reactomeMITAB<-downloadReactomeInteractionsMITAB(data_folder)
+#' }
+downloadReactomeInteractionsMITAB <- function(data_folder,species='HomoSapiens')
+{
     dFilePath <-
-        file.path(data_folder,CONSTANTS$reactome$interactions$`species`$downloadedFilename)
+        file.path(data_folder,
+                  CONSTANTS$reactome$interactions$`species`$downloadedFilename)
     if(!file.exists(dFilePath)){
-        utils::download.file(CONSTANTS$reactome$interactions[species]$mitabURL,dFilePath);
+        utils::download.file(CONSTANTS$reactome$interactions[species]$mitabURL,
+                             dFilePath);
     }
     return(utils::read.csv(
-        gzfile(dFilePath),header = FALSE,sep = "\t",skip = 1,stringsAsFactors = FALSE
+        gzfile(dFilePath),header = FALSE,sep = "\t",skip = 1,
+        stringsAsFactors = FALSE
     ));
 }
 
-#' Title
+#' Get a gene interaction data frame from a reactome ppi mitab data frame
 #'
-#' @param mitab
-#' @param usmap
+#' @param mitab - The mitab data frame containing PPI's
+#'                See  \code{\link{downloadReactomeInteractionsMITAB}}
 #'
-#' @return
+#' @param usmap - A mapping file between UniProt ID's and HGNC Symbols
+#'                See \code{\link{getUniProtToHGNCSymbolMapping}}
+#'
+#' @return  a data frame that contains the gene interaction
+#'   graph in two columns, the first being the source HGNCSymbol and the second
+#'   being the target HGNCSymbol of an interaction
 #' @export
+#' @seealso \code{\link{downloadReactomeInteractionsMITAB}}
 #'
 #' @examples
-getGeneInteractionListFromReactomeMITAB <- function(mitab,usmap) {
+#' \dontrun{
+#'      data_folder=tempdir()
+#'      usmap<-getUniProtToHGNCSymbolMapping(data_folder)
+#'      mitab <- downloadReactomeInteractionsMITAB(data_folder)
+#'      geneInteractions <- getGeneInteractionsFromReactomeMITAB(mitab,usmap)
+#' }
+getGeneInteractionsFromReactomeMITAB <- function(mitab,usmap) {
     idata <- mitab[,c(1,2)]
     idata[,1] <- gsub('uniprotkb:','',gsub('-[0-9]','',idata[,1]));
     idata[,2] <- gsub('uniprotkb:','',gsub('-[0-9]','',idata[,2]));
@@ -157,24 +204,29 @@ getGeneInteractionListFromReactomeMITAB <- function(mitab,usmap) {
         x = mapgraphA,y = usmap,by.x = "bup",by.y = "uniProtID"
     )[,c(2,3)]
     colnames(mapgraph) <- c("A","B")
-    geneInteractionList <- subset(unique(mapgraph),mapgraph$A != mapgraph$B)
-    return(geneInteractionList)
+    geneInteractions <- subset(unique(mapgraph),mapgraph$A != mapgraph$B)
+    return(geneInteractions)
 }
 
-#' Title
+#' Get a gene interaction data frame from a iRef ppi mitab data frame
 #'
-#' @param mitab
+#' @param mitab @param mitab - The mitab data frame containing PPI's e.g
+#'   Obtained using
+#'   \url{http://www.inside-r.org/packages/cran/iRefR/docs/get_irefindex}
 #'
-#' @return
+#' @return a data frame that contains the gene interaction
+#'   graph in two columns, the first being the source HGNCSymbol and the second
+#'   being the target HGNCSymbol of an interaction
 #' @export
 #'
 #' @examples
-getGeneInteractionListFromIRefMITAB <- function(mitab) {
+getGeneInteractionsFromIRefMITAB <- function(mitab) {
     factori <- sapply(mitab, is.factor)
     mitab[factori] <- lapply(mitab[factori], as.character)
     idata <- unique(subset(mitab[,c('aliasA','aliasB')],
                            (
-                               stringr::str_count(mitab$aliasA,'hgnc') == 1 & stringr::str_count(mitab$aliasB,'hgnc') == 1
+                               stringr::str_count(mitab$aliasA,'hgnc') == 1 &
+                                   stringr::str_count(mitab$aliasB,'hgnc') == 1
                            )))
     idata$aliasA <- gsub('hgnc:','',
                          grep('hgnc:',
@@ -190,7 +242,8 @@ getGeneInteractionListFromIRefMITAB <- function(mitab) {
     colnames(idata) <- c("A","B")
     idataE <- unique(subset(mitab[,c('aliasA','aliasB')],
                             (
-                                stringr::str_count(mitab$aliasA,'hgnc') > 1 & stringr::str_count(mitab$aliasB,'hgnc') > 1
+                                stringr::str_count(mitab$aliasA,'hgnc') > 1 &
+                                    stringr::str_count(mitab$aliasB,'hgnc') > 1
                             )))
     list_function <-
         function(cvec) {
@@ -210,8 +263,9 @@ getGeneInteractionListFromIRefMITAB <- function(mitab) {
                                        ))
                                    }))
     colnames(idataES) <- c("A","B")
-    geneInteractionList<-unique(rbind(idata,idataES))
-    return(subset(geneInteractionList,geneInteractionList$A != geneInteractionList$B))
+    geneInteractions<-unique(rbind(idata,idataES))
+    return(subset(geneInteractions,
+                  geneInteractions$A != geneInteractionList$B))
 }
 
 #' Title
@@ -295,7 +349,8 @@ prepareExpressionData <- function(eset,gpl,selectorFunction,combinerFunction) {
         "select a.HGNCSymbol, group_concat(a.probeName) as
         probes from hgnc2probe a inner join selectedProbes b
         on b.probeName=a.probeName where a.HGNCSymbol != ''
-        and a.HGNCSymbol is not null and a.probeName is not null group by a.HGNCSymbol"
+        and a.HGNCSymbol is not null and
+        a.probeName is not null group by a.HGNCSymbol"
     )
     data <- t(sapply(hgncProbeList$probes,combinerFunction,expdata))
     row.names(data) <- hgncProbeList$HGNCSymbol
@@ -318,7 +373,8 @@ logPairedTTestFunction <-
         if (is.null(nData) && is.null(dData) && is.null(hgncSymbol)) {
             return(
                 data.frame(
-                    foldChange = numeric(0),pValue = numeric(0),nMean = numeric(0),dMean = numeric(0)
+                    foldChange = numeric(0),
+                    pValue = numeric(0)
                 )
             )
         }
@@ -376,7 +432,8 @@ foldChangeFunction <- function(nData,dData,hgncSymbol,extraArgs) {
 #'
 #' @examples
 runTestOnData <-
-    function (data,normalSampleIndexes,diseaseSampleIndexes,testFunction,testFunctionExtraArgs) {
+    function (data,normalSampleIndexes,diseaseSampleIndexes,testFunction,
+              testFunctionExtraArgs) {
         hgncSymbols = row.names(data)
         normalData = t(data[,normalSampleIndexes])
         diseaseData = t(data[,diseaseSampleIndexes])
@@ -384,7 +441,8 @@ runTestOnData <-
         for (i in 1:length(hgncSymbols)) {
             result = rbind(
                 result,testFunction(
-                    normalData[,i],diseaseData[,i],hgncSymbols[i],testFunctionExtraArgs
+                    normalData[,i],diseaseData[,i],hgncSymbols[i],
+                    testFunctionExtraArgs
                 )
             )
         }
@@ -446,9 +504,12 @@ outdegreeNormalizedFCOneMinusPScoreFunction <-
 #'
 #' @examples
 computePersonalizationVectors <-
-    function (experimentalData,PPIGraph,defaults,scoreFunction,scoreFunctionExtraArgs) {
-        common = intersect(row.names(experimentalData),row.names(PPIGraph$vertex_map))
-        absent = setdiff(row.names(PPIGraph$vertex_map),row.names(experimentalData))
+    function (experimentalData,PPIGraph,defaults,
+              scoreFunction,scoreFunctionExtraArgs) {
+        common = intersect(row.names(experimentalData),
+                           row.names(PPIGraph$vertex_map))
+        absent = setdiff(row.names(PPIGraph$vertex_map),
+                         row.names(experimentalData))
         if (ncol(experimentalData) == 1) {
             experimentalDataSubset = experimentalData[common,1,drop = FALSE]
             experimentalDataSubset[absent,1] = defaults
@@ -456,9 +517,11 @@ computePersonalizationVectors <-
             experimentalDataSubset = experimentalData[common,]
             experimentalDataSubset[absent,] = defaults
         }
-        experimentalDataSubset = experimentalDataSubset[row.names(PPIGraph$vertex_map),,drop =
+        experimentalDataSubset =
+            experimentalDataSubset[row.names(PPIGraph$vertex_map),,drop =
                                                             FALSE]
-        result = scoreFunction(experimentalDataSubset,PPIGraph,scoreFunctionExtraArgs)
+        result = scoreFunction(experimentalDataSubset,PPIGraph,
+                               scoreFunctionExtraArgs)
         row.names(result) = row.names(experimentalDataSubset)
         return(result)
     }
@@ -476,9 +539,12 @@ computePersonalizationVectors <-
 computePageRanks <-
     function(personalizationVectors,PPIGraph,alpha) {
         pvs = personalizationVectors[row.names(PPIGraph$vertex_map),]
-        npr = igraph::page.rank(PPIGraph$igraph_object,personalized = pvs$normal,damping = alpha)
-        ppr = igraph::page.rank(PPIGraph$igraph_object,personalized = pvs$disease,damping = alpha)
-        result = data.frame(normalPageRank = npr$vector,diseasePageRank = ppr$vector)
+        npr = igraph::page.rank(PPIGraph$igraph_object,
+                                personalized = pvs$normal,damping = alpha)
+        ppr = igraph::page.rank(PPIGraph$igraph_object,
+                                personalized = pvs$disease,damping = alpha)
+        result = data.frame(normalPageRank = npr$vector,
+                            diseasePageRank = ppr$vector)
         return(result)
     }
 
@@ -511,31 +577,39 @@ meanAbsoluteDeviationDistanceFunction <-
 #' @examples
 KLDivergenceDistanceFunction <-
     function(normalPageRanks,diseasePageRanks,extraArgs) {
-        return(data.frame(KLDivergence = entropy::KL.plugin(normalPageRanks,diseasePageRanks)))
+        return(
+            data.frame(
+                KLDivergence =
+                    entropy::KL.plugin(normalPageRanks,diseasePageRanks)))
     }
 
-computePathwayScores <-
-    function(pageRanks,pathwayMembership,distanceFunction,distanceFunctionExtraArgs) {
 #' Title
 #'
-#' @param item
-#' @param pageranks
-#' @param analysis
-#' @param analysisparam
+#' @param pageRanks
+#' @param pathwayMembership
+#' @param distanceFunction
+#' @param distanceFunctionExtraArgs
 #'
 #' @return
 #' @export
 #'
 #' @examples
+computePathwayScores <-
+    function(pageRanks,pathwayMembership,distanceFunction,
+             distanceFunctionExtraArgs) {
         listFunction <- function(item,pageranks,analysis,analysisparam) {
             return(data.frame(
-                analysis(pageranks[item,"normalPageRank"],pageranks[item,"diseasePageRank"],analysisparam),stringsAsFactors = FALSE
+                analysis(pageranks[item,"normalPageRank"],
+                         pageranks[item,"diseasePageRank"],
+                         analysisparam),stringsAsFactors = FALSE
             ))
         }
         return(do.call(
             "rbind",lapply(
-                pathwayMembership,listFunction,pageranks = pageRanks,analysis = distanceFunction,analysisparam =
-                    distanceFunctionExtraArgs
+                pathwayMembership,listFunction,
+                pageranks = pageRanks,
+                analysis = distanceFunction,
+                analysisparam = distanceFunctionExtraArgs
             )
         ))
     }
