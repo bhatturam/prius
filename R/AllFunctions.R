@@ -268,15 +268,29 @@ getGeneInteractionsFromIRefMITAB <- function(mitab) {
                   geneInteractions$A != geneInteractionList$B))
 }
 
-#' Title
+#' Load pathway data from Reactome
 #'
-#' @param pdata
-#' @param usmap
+#' @param pdata a data frame containing three columns, uniProtID, reactomeID,
+#'   reactomeDescription which stand for the protein identifier, pathway
+#'   identifier and the pathway description. See
+#'   \code{\link{downloadReactomePathways}},for more details
+#' @param usmap A mapping file between UniProt ID's and HGNC Symbols
+#'                See \code{\link{getUniProtToHGNCSymbolMapping}}
 #'
-#' @return
+#' @return A list containing two elements -
+#'          pathways- a single column data frame with description
+#'          string for each unique pathway id
+#'          memberships - a list of character vectors of gene ids
+#'          indexed by pathway id, containing the list of hgnc symbols
+#'          of genes in each pathway.
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#'      dataFolder <- tempdir()
+#'      rawPathwayData<-downloadReactomePathways(dataFolder)
+#'      pdata<-loadPathwayDataReactome(pdata)
+#' }
 loadPathwayDataReactome <- function(pdata,usmap) {
     memberships = unique(merge(pdata,usmap,by = "uniProtID")[,c(4,2)])
     pathwayMembership = split(memberships,memberships$reactomeID)
@@ -292,15 +306,18 @@ loadPathwayDataReactome <- function(pdata,usmap) {
                 pathwayMembership = pathwayMembership))
 }
 
-#' Title
+#' Combine probes by mean expression value
 #'
-#' @param pls
-#' @param expdata
+#' Multiple probes may map to the same HGNC Symbol, and this function
+#' that is to be used as input to the \code{\link{prepareExpressionData}} combines
+#' these probes by taking the mean of the expression values
+#' @param A string containing comma separated probe names
+#' @param expdata a matrix of expression values returned from functions such as
+#'        \url{'http://svitsrv25.epfl.ch/R-doc/library/Biobase/html/exprs.html'}
 #'
-#' @return
+#' @return a single value representing the gene expression
 #' @export
 #'
-#' @examples
 probeCombinerMean <- function(pls,expdata) {
     probes = unlist(strsplit(pls,','))
     if (length(probes) > 1) {
@@ -310,14 +327,18 @@ probeCombinerMean <- function(pls,expdata) {
     }
 }
 
-#' Title
+#' Select only _at and _a_at probe sets for analysis
 #'
-#' @param probeName
+#' There are probe sets with different suffixes depending on probe behavior,(See
+#' \url{http://www.affymetrix.com/support/help/faqs/hgu133/index.jsp} for more
+#' information) and this function that is to be used as input to the
+#' \code{\link{prepareExpressionData}} selects only the expression values
+#' corresponding probe set suffixes _at and _a_at for analysis
+#' @param probeName the name of the probe set
 #'
-#' @return
+#' @return a binary value indicating if probeName is to be selected
 #' @export
 #'
-#' @examples
 defaultProbeSelector <- function(probeName){
     return( grepl("[0-9]+_at", probeName) |
                 grepl("[0-9]+_a_at", probeName))

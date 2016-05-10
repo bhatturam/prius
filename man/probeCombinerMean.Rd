@@ -2,14 +2,22 @@
 % Please edit documentation in R/AllFunctions.R
 \name{probeCombinerMean}
 \alias{probeCombinerMean}
-\title{Title}
+\title{Combine probes by mean expression value}
 \usage{
 probeCombinerMean(pls, expdata)
 }
 \arguments{
-\item{expdata}{}
+\item{expdata}{a matrix of expression values returned from functions such as
+\url{'http://svitsrv25.epfl.ch/R-doc/library/Biobase/html/exprs.html'}}
+
+\item{A}{string containing comma separated probe names}
+}
+\value{
+a single value representing the gene expression
 }
 \description{
-Title
+Multiple probes may map to the same HGNC Symbol, and this function
+that is to be used as input to the \code{\link{prepareExpressionData}} combines
+these probes by taking the mean of the expression values
 }
 

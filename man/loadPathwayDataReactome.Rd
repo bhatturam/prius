@@ -2,14 +2,35 @@
 % Please edit documentation in R/AllFunctions.R
 \name{loadPathwayDataReactome}
 \alias{loadPathwayDataReactome}
-\title{Title}
+\title{Load pathway data from Reactome}
 \usage{
 loadPathwayDataReactome(pdata, usmap)
 }
 \arguments{
-\item{usmap}{}
+\item{pdata}{a data frame containing three columns, uniProtID, reactomeID,
+reactomeDescription which stand for the protein identifier, pathway
+identifier and the pathway description. See
+\code{\link{downloadReactomePathways}},for more details}
+
+\item{usmap}{A mapping file between UniProt ID's and HGNC Symbols
+See \code{\link{getUniProtToHGNCSymbolMapping}}}
+}
+\value{
+A list containing two elements -
+         pathways- a single column data frame with description
+         string for each unique pathway id
+         memberships - a list of character vectors of gene ids
+         indexed by pathway id, containing the list of hgnc symbols
+         of genes in each pathway.
 }
 \description{
-Title
+Load pathway data from Reactome
+}
+\examples{
+\dontrun{
+     dataFolder <- tempdir()
+     rawPathwayData<-downloadReactomePathways(dataFolder)
+     pdata<-loadPathwayDataReactome(pdata)
+}
 }
 

@@ -2,14 +2,21 @@
 % Please edit documentation in R/AllFunctions.R
 \name{defaultProbeSelector}
 \alias{defaultProbeSelector}
-\title{Title}
+\title{Select only _at and _a_at probe sets for analysis}
 \usage{
 defaultProbeSelector(probeName)
 }
 \arguments{
-\item{probeName}{}
+\item{probeName}{the name of the probe set}
+}
+\value{
+a binary value indicating if probeName is to be selected
 }
 \description{
-Title
+There are probe sets with different suffixes depending on probe behavior,(See
+\url{http://www.affymetrix.com/support/help/faqs/hgu133/index.jsp} for more
+information) and this function that is to be used as input to the
+\code{\link{prepareExpressionData}} selects only the expression values
+corresponding probe set suffixes _at and _a_at for analysis
 }
 
