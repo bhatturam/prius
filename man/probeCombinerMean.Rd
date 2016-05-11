@@ -17,7 +17,7 @@ a single value representing the gene expression
 }
 \description{
 Multiple probes may map to the same HGNC Symbol, and this function
-that is to be used as input to the \code{\link{prepareExpressionData}} combines
+that is to be used as input to the \code{\link{loadExpressionData}} combines
 these probes by taking the mean of the expression values
 }
 

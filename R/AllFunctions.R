@@ -309,7 +309,7 @@ loadPathwayDataReactome <- function(pdata,usmap) {
 #' Combine probes by mean expression value
 #'
 #' Multiple probes may map to the same HGNC Symbol, and this function
-#' that is to be used as input to the \code{\link{prepareExpressionData}} combines
+#' that is to be used as input to the \code{\link{loadExpressionData}} combines
 #' these probes by taking the mean of the expression values
 #' @param A string containing comma separated probe names
 #' @param expdata a matrix of expression values returned from functions such as
@@ -332,34 +332,38 @@ probeCombinerMean <- function(pls,expdata) {
 #' There are probe sets with different suffixes depending on probe behavior,(See
 #' \url{http://www.affymetrix.com/support/help/faqs/hgu133/index.jsp} for more
 #' information) and this function that is to be used as input to the
-#' \code{\link{prepareExpressionData}} selects only the expression values
+#' \code{\link{loadExpressionData}} selects only the expression values
 #' corresponding probe set suffixes _at and _a_at for analysis
 #' @param probeName the name of the probe set
 #'
 #' @return a binary value indicating if probeName is to be selected
 #' @export
 #'
-defaultProbeSelector <- function(probeName){
+probeSelectorATSAT <- function(probeName){
     return( grepl("[0-9]+_at", probeName) |
                 grepl("[0-9]+_a_at", probeName))
 }
 
-#' Title
+#' Load experiment data
 #'
-#' @param eset
-#' @param gpl
-#' @param selectorFunction
-#' @param combinerFunction
+#' @param expdata a probeName x sample matrix of expression values
+#'   expression data
+#' @param hgnc2probe a data frame with two columns probeName and HGNCSymbol
+#'    for mapping probeNames to HGNC Symbols
+#' @param selectorFunction a function that accepts a probeName string and
+#'   returns true if the probe is to be considered. See
+#'   \code{\link{probeSelectorATSAT}} for an example.
+#' @param combinerFunction a function that accepts a comma separated string and
+#'   returns true if the probe is to be considered. See
+#'   \code{\link{probeCombinerMean}} for an example.
 #'
-#' @return
+#' @return A data frame with columns as sample names, and rows as HGNC Symbols
+#'  containing the expression values for analysis
 #' @export
 #'
-#' @examples
-prepareExpressionData <- function(eset,gpl,selectorFunction,combinerFunction) {
-    expdata <- Biobase::exprs(eset)
+#'
+loadExperimentData <- function(expdata,hgnc2probe,selectorFunction=probeSelectorATSAT,combinerFunction=probeCombinerMean) {
     dataRowNames <- data.frame(probeName = row.names(expdata))
-    hgnc2probe <- GEOquery::Table(gpl)[,c("ID","Gene Symbol")]
-    names(hgnc2probe) <- c("probeName","HGNCSymbol")
     selectedProbes <- subset(hgnc2probe,
                              (
                                  selectorFunction(hgnc2probe$probeName)
@@ -376,6 +380,45 @@ prepareExpressionData <- function(eset,gpl,selectorFunction,combinerFunction) {
     data <- t(sapply(hgncProbeList$probes,combinerFunction,expdata))
     row.names(data) <- hgncProbeList$HGNCSymbol
     return(data)
+}
+
+#' Import expression data and probe mappings from GEO dataset
+#'
+#' This function processes the expression set and gpl files obtained using the
+#' GEOQuery package
+#'
+#' @param eset An expression set, for more details refer to
+#'   \url{https://www.bioconductor.org/packages/3.3/bioc/vignettes/Biobase/inst/doc/ExpressionSetIntroduction.pdf}
+#'    and \url{http://svitsrv25.epfl.ch/R-doc/library/GEOquery/html/GDS2MA.html}
+#'
+#' @param gpl GEO Platform entity, refer
+#'   \url{http://svitsrv25.epfl.ch/R-doc/library/GEOquery/html/GPL-class.html}
+#'   for more details
+#'
+#' @param selectorFunction a function that accepts a probeName string and
+#'   returns true if the probe is to be considered. See
+#'   \code{\link{probeSelectorATSAT}} for an example.
+#' @param combinerFunction a function that accepts a comma separated string and
+#'   returns true if the probe is to be considered. See
+#'   \code{\link{probeCombinerMean}} for an example.
+#'
+#' @return A data frame with columns as sample names, and rows as HGNC Symbols
+#'   containing the expression values for analysis
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' data_folder = tempdir()
+#' gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir = data_folder)
+#' gpl = getGEO(Meta(gds)$platform,destdir = data_folder)
+#' eset = GDS2eSet(gds, GPL=gpl)
+#' gdata=importExpressionDataGEO(eset,gpl)
+#' }
+importExpressionDataGEO <- function(eset,gpl,selectorFunction=probeSelectorATSAT,combinerFunction=probeCombinerMean) {
+    expdata <- Biobase::exprs(eset)
+    hgnc2probe <- GEOquery::Table(gpl)[,c("ID","Gene Symbol")]
+    names(hgnc2probe) <- c("probeName","HGNCSymbol")
+    return()
 }
 
 #' Title

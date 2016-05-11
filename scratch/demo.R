@@ -11,7 +11,7 @@ gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir = "/tmp")
 gpl = getGEO(Meta(gds)$platform,destdir = "/tmp")
 eset = GDS2eSet(gds, GPL=gpl,do.log2=FALSE)
 numPairs = dim(pData(eset))[1]/2
-expressionDataGEO=prepareExpressionData(eset,gpl,probeCombinerMean)
+expressionDataGEO=importExpressionDataGEO(eset,gpl,defaultProbeSelector,probeCombinerMean)
 iref_mitab=get_irefindex(tax_id="9606",data_folder="/tmp/",iref_version = "13.0")
 irefPPIGraph = createIGraphObject(getGeneInteractionListFromIRefMITAB(iref_mitab))
 us=getUniProtToHGNCSymbolMapping();
