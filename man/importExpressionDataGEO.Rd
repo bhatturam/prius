@@ -25,8 +25,8 @@ returns true if the probe is to be considered. See
 \code{\link{probeCombinerMean}} for an example.}
 }
 \value{
-A data frame with columns as sample names, and rows as HGNC Symbols
-  containing the expression values for analysis
+A data frame with columns as sample names, and rows
+  containing the expression values of each as HGNC Symbol.
 }
 \description{
 This function processes the expression set and gpl files obtained using the
@@ -34,10 +34,11 @@ GEOQuery package
 }
 \examples{
 \dontrun{
+library(GEOquery)
 data_folder = tempdir()
 gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir = data_folder)
 gpl = getGEO(Meta(gds)$platform,destdir = data_folder)
-eset = GDS2eSet(gds, GPL=gpl)
+eset = GDS2eSet(gds, GPL=gpl,do.log2=FALSE)
 gdata=importExpressionDataGEO(eset,gpl)
 }
 }

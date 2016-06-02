@@ -19,4 +19,11 @@ a data frame that contains the gene interaction
 \description{
 Get a gene interaction data frame from a iRef ppi mitab data frame
 }
+\examples{
+\dontrun{
+library(iRefR)
+iref_mitab=get_irefindex(tax_id="9606",data_folder="/tmp/",iref_version = "13.0")
+irefGeneInteractions = getGeneInteractionListFromIRefMITAB(iref_mitab)
+}
+}
 

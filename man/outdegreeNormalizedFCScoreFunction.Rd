@@ -2,14 +2,28 @@
 % Please edit documentation in R/AllFunctions.R
 \name{outdegreeNormalizedFCScoreFunction}
 \alias{outdegreeNormalizedFCScoreFunction}
-\title{Title}
+\title{Outdegree normalized fold change based scoring}
 \usage{
 outdegreeNormalizedFCScoreFunction(experimentalData, PPIGraph, extraArgs)
 }
 \arguments{
-\item{extraArgs}{}
+\item{experimentalData}{A data frame with as many rows as HGNC Gene Symbols,
+with the columns defined by the output of testFunction. The output of
+\code{\link{runTestOnData}}.}
+
+\item{PPIGraph}{A list containing igraph_object - the igraph object and
+vertex_map - a frame containing node attributes currently indegree and
+outdegree. The output of \code{\link{createIGraphObject}}}
+
+\item{extraArgs}{NA}
+}
+\value{
+A data frame with two columns npv - normal personalization vector
+  and dpv - disease personalization vector. There are as many rows as number
+  of HGNC Symbols in PPIGraph
 }
 \description{
-Title
+Uses the fold change values and the outdegree of the nodes to define a score
+function for use with \code{\link{computePersonalizationVectors}}
 }
 

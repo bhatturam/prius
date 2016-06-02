@@ -2,15 +2,46 @@
 % Please edit documentation in R/AllFunctions.R
 \name{computePathwayScores}
 \alias{computePathwayScores}
-\title{Title}
+\title{Compute the pathway scores from the pageRanks.}
 \usage{
 computePathwayScores(pageRanks, pathwayMembership, distanceFunction,
   distanceFunctionExtraArgs)
 }
 \arguments{
-\item{distanceFunctionExtraArgs}{}
+\item{pageRanks}{A data frame with two columns containing the normal page
+rank and the disease page rank. There are as many rows as number of HGNC
+Symbols in PPI Graph. The output from \code{\link{computePageRanks}}}
+
+\item{pathwayMembership}{A list containing two elements - pathways- a single
+column data frame with description string for each unique pathway id
+memberships - a list of character vectors of gene ids indexed by pathway
+id, containing the list of hgnc symbols of genes in each pathway. The
+output of \code{\link{loadPathwayDataReactome}}}
+
+\item{distanceFunction}{A function to compare the normal and disease pagerank
+vectors. See \code{\link{KLDivergenceDistanceFunction}} or
+\code{\link{meanAbsoluteDeviationDistanceFunction}} foe examples}
+
+\item{distanceFunctionExtraArgs}{A list of extra arguments to be passed to
+the distance function if any.}
+}
+\value{
+A data frame containing the deviation score for each pathway.
 }
 \description{
-Title
+This function computes the pathway scores for the given pathways and the
+pageRanks using the passed distanceFunction
+}
+\examples{
+\dontrun{
+gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir =
+"/tmp") gpl = getGEO(Meta(gds)$platform,destdir = "/tmp") eset =
+GDS2eSet(gds, GPL=gpl,do.log2=FALSE) numPairs = dim(pData(eset))[1]/2
+expressionDataGEO=importExpressionDataGEO(eset,gpl,defaultProbeSelector,probeCombinerMean)
+experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)
+personalizationVectorsGEO=computePersonalizationVectors(experimentDataGEO,reactomePPIGraph,data.frame(foldChange=1,pValue=1),outdegreeNormalizedFCOneMinusPScoreFunction)
+pageRanksGEO=computePageRanks(personalizationVectorsGEO,reactomePPIGraph,0.7)
+pathwayScoresGEO=computePathwayScores(pageRanksGEO,reactomePathwayData$pathwayMembership,meanAbsoluteDeviationDistanceFunction,list())
+}
 }
 

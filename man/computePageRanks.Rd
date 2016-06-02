@@ -2,14 +2,40 @@
 % Please edit documentation in R/AllFunctions.R
 \name{computePageRanks}
 \alias{computePageRanks}
-\title{Title}
+\title{Compute the pageRanks for the genes.}
 \usage{
 computePageRanks(personalizationVectors, PPIGraph, alpha)
 }
 \arguments{
-\item{alpha}{}
+\item{personalizationVectors}{A data frame with two columns npv - normal
+personalization vector and dpv - disease personalization vector. There are
+as many rows as number of HGNC Symbols in experimentData}
+
+\item{PPIGraph}{PPIGraph PPIGraph A list containing igraph_object - the
+igraph object and vertex_map - a frame containing node attributes currently
+indegree and outdegree. The output of \code{\link{createIGraphObject}}}
+
+\item{alpha}{The damping factor}
+}
+\value{
+A data frame with two columns containing the normal page rank and the
+  disease page rank. There are as many rows as number of HGNC Symbols in PPI
+  Graph
 }
 \description{
-Title
+This function computes the pageRanks for the genes based on the input
+personalization vectors constructed from experimental data.
+}
+\examples{
+\dontrun{
+gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir = "/tmp")
+gpl = getGEO(Meta(gds)$platform,destdir = "/tmp")
+eset = GDS2eSet(gds, GPL=gpl,do.log2=FALSE)
+numPairs = dim(pData(eset))[1]/2
+expressionDataGEO=importExpressionDataGEO(eset,gpl,defaultProbeSelector,probeCombinerMean)
+experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)
+personalizationVectorsGEO=computePersonalizationVectors(experimentDataGEO,reactomePPIGraph,data.frame(foldChange=1,pValue=1),outdegreeNormalizedFCOneMinusPScoreFunction)
+pageRanksGEO=computePageRanks(personalizationVectorsGEO,reactomePPIGraph,0.7)
+}
 }
 

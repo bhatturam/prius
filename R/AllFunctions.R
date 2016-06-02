@@ -159,9 +159,9 @@ downloadReactomeInteractionsMITAB <- function(data_folder,species='HomoSapiens')
 {
     dFilePath <-
         file.path(data_folder,
-                  CONSTANTS$reactome$interactions$`species`$downloadedFilename)
+                  get(species,CONSTANTS$reactome$interactions)$downloadedFilename)
     if(!file.exists(dFilePath)){
-        utils::download.file(CONSTANTS$reactome$interactions[species]$mitabURL,
+        utils::download.file(get(species,CONSTANTS$reactome$interactions)$mitabURL,
                              dFilePath);
     }
     return(utils::read.csv(
@@ -205,7 +205,7 @@ getGeneInteractionsFromReactomeMITAB <- function(mitab,usmap) {
     )[,c(2,3)]
     colnames(mapgraph) <- c("A","B")
     geneInteractions <- subset(unique(mapgraph),mapgraph$A != mapgraph$B)
-    return(geneInteractions)
+    return(geneInteractions[complete.cases(geneInteractions),])
 }
 
 #' Get a gene interaction data frame from a iRef ppi mitab data frame
@@ -220,6 +220,11 @@ getGeneInteractionsFromReactomeMITAB <- function(mitab,usmap) {
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#' library(iRefR)
+#' iref_mitab=get_irefindex(tax_id="9606",data_folder="/tmp/",iref_version = "13.0")
+#' irefGeneInteractions = getGeneInteractionListFromIRefMITAB(iref_mitab)
+#' }
 getGeneInteractionsFromIRefMITAB <- function(mitab) {
     factori <- sapply(mitab, is.factor)
     mitab[factori] <- lapply(mitab[factori], as.character)
@@ -362,7 +367,9 @@ probeSelectorATSAT <- function(probeName){
 #' @export
 #'
 #'
-loadExperimentData <- function(expdata,hgnc2probe,selectorFunction=probeSelectorATSAT,combinerFunction=probeCombinerMean) {
+loadExperimentData <- function(expdata,hgnc2probe,
+                               selectorFunction=probeSelectorATSAT,
+                               combinerFunction=probeCombinerMean) {
     dataRowNames <- data.frame(probeName = row.names(expdata))
     selectedProbes <- subset(hgnc2probe,
                              (
@@ -402,36 +409,46 @@ loadExperimentData <- function(expdata,hgnc2probe,selectorFunction=probeSelector
 #'   returns true if the probe is to be considered. See
 #'   \code{\link{probeCombinerMean}} for an example.
 #'
-#' @return A data frame with columns as sample names, and rows as HGNC Symbols
-#'   containing the expression values for analysis
+#' @return A data frame with columns as sample names, and rows
+#'   containing the expression values of each as HGNC Symbol.
 #' @export
 #'
 #' @examples
 #' \dontrun{
+#' library(GEOquery)
 #' data_folder = tempdir()
 #' gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir = data_folder)
 #' gpl = getGEO(Meta(gds)$platform,destdir = data_folder)
-#' eset = GDS2eSet(gds, GPL=gpl)
+#' eset = GDS2eSet(gds, GPL=gpl,do.log2=FALSE)
 #' gdata=importExpressionDataGEO(eset,gpl)
 #' }
 importExpressionDataGEO <- function(eset,gpl,selectorFunction=probeSelectorATSAT,combinerFunction=probeCombinerMean) {
     expdata <- Biobase::exprs(eset)
     hgnc2probe <- GEOquery::Table(gpl)[,c("ID","Gene Symbol")]
     names(hgnc2probe) <- c("probeName","HGNCSymbol")
-    return()
+    return(loadExperimentData(expdata,hgnc2probe,selectorFunction,combinerFunction))
 }
 
-#' Title
+#' Paired t-test based test function
 #'
-#' @param nData
-#' @param dData
-#' @param hgncSymbol
-#' @param extraArgs
+#' Perform a paired t-test on expression data for a single gene
+#' It is meant to be used with \code{\link{runTestOnData}}
+#' This function is used to obtain a p-value on the fold change between normal
+#' and disease samples for a single gene. If the data is already logarithm
+#' transformed in this function, then the exponent must be passed in the list
+#' extraArgs
 #'
-#' @return
+#' @param nData A vector with numSamples/2  normal expression values for a gene
+#' @param dData A vector with numSamples/2  disease expression values for a gene
+#' @param hgncSymbol The HGNC Symbol of the gene
+#' @param extraArgs #' @param extraArgs A list of named extra arguments, the
+#'   only name supported is exponent (assumed to be 1 if not provided for non
+#'   log transformed data). An exponent not equal to 1 assumes that the
+#'   expression data has been log transformed with base exponent
+#'
+#' @return A single row data frame with two columns foldChange and pValue
 #' @export
 #'
-#' @examples
 logPairedTTestFunction <-
     function(nData,dData,hgncSymbol,extraArgs) {
         if (is.null(nData) && is.null(dData) && is.null(hgncSymbol)) {
@@ -442,27 +459,43 @@ logPairedTTestFunction <-
                 )
             )
         }
-        nDataLog = log(1 + nData)
-        dDataLog = log(1 + dData)
-        result = stats::t.test(dDataLog,nDataLog,paired = TRUE)
-        fc = exp(result$estimate)
+        if (is.null(extraArgs$exponent)) {
+            exponent = 1
+        }else{
+            exponent = extraArgs$exponent
+        }
+        if (exponent == 1) {
+            nDataLog = log(1 + nData)
+            dDataLog = log(1 + dData)
+            result = stats::t.test(dDataLog,nDataLog,paired = TRUE)
+            fc = exp(result$estimate)
+        }else{
+            nDataLog = log(1 + nData)
+            dDataLog = log(1 + dData)
+            result = stats::t.test(dData,nData,paired = TRUE)
+            fc = exponent ^ result$estimate
+        }
         fc[fc < 1] = 1 / fc[fc < 1]
         return(data.frame(
             foldChange = fc,pValue = result$p.value,row.names = c(hgncSymbol)
         ))
     }
 
-#' Title
+#' Simple fold change test function
 #'
-#' @param nData
-#' @param dData
-#' @param hgncSymbol
-#' @param extraArgs
+#' Computes fold change for two sample expression data for a single gene.
+#' It is meant to be used with \code{\link{runTestOnData}}.
+#' @param nData The scalar normal expression values for a gene
+#' @param dData The scalar disease expression values for a gene
+#' @param hgncSymbol The HGNC Symbol of the gene
+#' @param extraArgs A list of named extra arguments, the only name supported is
+#'   exponent (assumed to be 1 if not provided for non log transformed data). An
+#'   exponent not equal to 1 assumes that the expression data has been log
+#'   transformed with base exponent
 #'
-#' @return
+#' @return A single row data frame with one column foldChange
 #' @export
 #'
-#' @examples
 foldChangeFunction <- function(nData,dData,hgncSymbol,extraArgs) {
     if (is.null(nData) && is.null(dData) && is.null(hgncSymbol)) {
         return(data.frame(foldChange = numeric(0)))
@@ -483,18 +516,35 @@ foldChangeFunction <- function(nData,dData,hgncSymbol,extraArgs) {
     return(data.frame(foldChange = fc,row.names = c(hgncSymbol)))
 }
 
-#' Title
+#' Test expression data
 #'
-#' @param data
-#' @param normalSampleIndexes
-#' @param diseaseSampleIndexes
-#' @param testFunction
-#' @param testFunctionExtraArgs
+#' Runs the specified test function on the expression data to obtain fold change
+#' and p-values.
 #'
-#' @return
+#' @param data A data frame with columns as sample names, and rows containing
+#'   the expression values of each as HGNC Symbol. For example the output of
+#'   \code{\link{importExpressionDataGEO}}
+#' @param normalSampleIndexes The indices of the columns which contain the
+#'   normal samples
+#' @param diseaseSampleIndexes The indices of the columns which contain the
+#'   disease samples
+#' @param testFunction The test function - see
+#'   \code{\link{logPairedTTestFunction}}
+#' @param testFunctionExtraArgs Extra arguments to the test function
+#'
+#' @return A data frame with as many rows as HGNC Gene Symbols,  with the
+#'   columns defined by the output of testFunction.
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#' gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir = "/tmp")
+#' gpl = getGEO(Meta(gds)$platform,destdir = "/tmp")
+#' eset = GDS2eSet(gds, GPL=gpl,do.log2=FALSE)
+#' numPairs = dim(pData(eset))[1]/2
+#' expressionDataGEO=importExpressionDataGEO(eset,gpl,defaultProbeSelector,probeCombinerMean)
+#' experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)
+#' }
 runTestOnData <-
     function (data,normalSampleIndexes,diseaseSampleIndexes,testFunction,
               testFunctionExtraArgs) {
@@ -514,16 +564,24 @@ runTestOnData <-
         return(result)
     }
 
-#' Title
+#' Outdegree normalized fold change based scoring
 #'
-#' @param experimentalData
-#' @param PPIGraph
-#' @param extraArgs
+#' Uses the fold change values and the outdegree of the nodes to define a score
+#' function for use with \code{\link{computePersonalizationVectors}}
 #'
-#' @return
+#' @param experimentalData  A data frame with as many rows as HGNC Gene Symbols,
+#'   with the columns defined by the output of testFunction. The output of
+#'   \code{\link{runTestOnData}}.
+#' @param PPIGraph A list containing igraph_object - the igraph object and
+#'   vertex_map - a frame containing node attributes currently indegree and
+#'   outdegree. The output of \code{\link{createIGraphObject}}
+#' @param extraArgs NA
+#'
+#' @return A data frame with two columns npv - normal personalization vector
+#'   and dpv - disease personalization vector. There are as many rows as number
+#'   of HGNC Symbols in PPIGraph
 #' @export
 #'
-#' @examples
 outdegreeNormalizedFCScoreFunction <-
     function(experimentalData,PPIGraph,extraArgs) {
         npv = PPIGraph$vertex_map$outdegree / sum(PPIGraph$vertex_map$outdegree)
@@ -534,16 +592,25 @@ outdegreeNormalizedFCScoreFunction <-
         return(result)
     }
 
-#' Title
+#' Outdegree normalized fold change and p-value based scoring
 #'
-#' @param experimentalData
-#' @param PPIGraph
-#' @param extraArgs
+#' Uses the fold change, p-values and the outdegree of the nodes to define a
+#' score function for use with \code{\link{computePersonalizationVectors}}
 #'
-#' @return
+#' @param experimentalData experimentalData  A data frame with as many rows as
+#'   HGNC Gene Symbols, with the columns defined by the output of testFunction.
+#'   The output of \code{\link{runTestOnData}}.
+#' @param PPIGraph PPIGraph A list containing igraph_object - the igraph object
+#'   and vertex_map - a frame containing node attributes currently indegree and
+#'   outdegree. The output of \code{\link{createIGraphObject}}
+#' @param extraArgs NA
+#'
+#' @return A data frame with two columns npv - normal personalization vector and
+#'   dpv - disease personalization vector. There are as many rows as number of
+#'   HGNC Symbols in PPIGraph
+#'
 #' @export
 #'
-#' @examples
 outdegreeNormalizedFCOneMinusPScoreFunction <-
     function(experimentalData,PPIGraph,extraArgs) {
         npv = PPIGraph$vertex_map$outdegree / sum(PPIGraph$vertex_map$outdegree)
@@ -555,18 +622,43 @@ outdegreeNormalizedFCOneMinusPScoreFunction <-
         return(result)
     }
 
-#' Title
+#' Compute the personalization vectors based on experimental data based on a
+#' score function
 #'
-#' @param experimentalData
-#' @param PPIGraph
-#' @param defaults
-#' @param scoreFunction
-#' @param scoreFunctionExtraArgs
+#' This function computes the personalization vectors from the experiment data
+#' based on an input score function based on the test parameters.
 #'
-#' @return
+#' @param experimentalData experimentalData  A data frame with as many rows as
+#'   HGNC Gene Symbols, with the columns defined by the output of testFunction.
+#'   The output of \code{\link{runTestOnData}}.
+#' @param PPIGraph PPIGraph A list containing igraph_object - the igraph object
+#'   and vertex_map - a frame containing node attributes currently indegree and
+#'   outdegree. The output of \code{\link{createIGraphObject}}
+#' @param defaults A data frame corresspoding to the default experimental values
+#'   for genes missing from the experiment. This must be of the same format as
+#'   the output of the scoreFunction.
+#' @param scoreFunction A score function that accepts the experimentalData and
+#'   the PPI Graph to return the normal and disease personalization vectors. Foe
+#'   example see \code{\link{outdegreeNormalizedFCScoreFunction}} or
+#'   \code{\link{outdegreeNormalizedFCOneMinusPScoreFunction}}
+#' @param scoreFunctionExtraArgs A list of extra arguments that are to be passed
+#'   to the score function if any.
+#'
+#' @return A data frame with two columns npv - normal personalization vector and
+#'   dpv - disease personalization vector. There are as many rows as number of
+#'   HGNC Symbols in PPIGraph
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#' gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir = "/tmp")
+#' gpl = getGEO(Meta(gds)$platform,destdir = "/tmp")
+#' eset = GDS2eSet(gds, GPL=gpl,do.log2=FALSE)
+#' numPairs = dim(pData(eset))[1]/2
+#' expressionDataGEO=importExpressionDataGEO(eset,gpl,defaultProbeSelector,probeCombinerMean)
+#' experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)
+#' personalizationVectorsGEO=computePersonalizationVectors(experimentDataGEO,reactomePPIGraph,data.frame(foldChange=1,pValue=1),outdegreeNormalizedFCOneMinusPScoreFunction)
+#' }
 computePersonalizationVectors <-
     function (experimentalData,PPIGraph,defaults,
               scoreFunction,scoreFunctionExtraArgs) {
@@ -590,16 +682,34 @@ computePersonalizationVectors <-
         return(result)
     }
 
-#' Title
+#' Compute the pageRanks for the genes.
 #'
-#' @param personalizationVectors
-#' @param PPIGraph
-#' @param alpha
+#' This function computes the pageRanks for the genes based on the input
+#' personalization vectors constructed from experimental data.
 #'
-#' @return
+#' @param personalizationVectors  A data frame with two columns npv - normal
+#'   personalization vector and dpv - disease personalization vector. There are
+#'   as many rows as number of HGNC Symbols in experimentData
+#' @param PPIGraph  PPIGraph PPIGraph A list containing igraph_object - the
+#'   igraph object and vertex_map - a frame containing node attributes currently
+#'   indegree and outdegree. The output of \code{\link{createIGraphObject}}
+#' @param alpha The damping factor
+#'
+#' @return A data frame with two columns containing the normal page rank and the
+#'   disease page rank. There are as many rows as number of HGNC Symbols in PPI
+#'   Graph
 #' @export
-#'
 #' @examples
+#' \dontrun{
+#' gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir = "/tmp")
+#' gpl = getGEO(Meta(gds)$platform,destdir = "/tmp")
+#' eset = GDS2eSet(gds, GPL=gpl,do.log2=FALSE)
+#' numPairs = dim(pData(eset))[1]/2
+#' expressionDataGEO=importExpressionDataGEO(eset,gpl,defaultProbeSelector,probeCombinerMean)
+#' experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)
+#' personalizationVectorsGEO=computePersonalizationVectors(experimentDataGEO,reactomePPIGraph,data.frame(foldChange=1,pValue=1),outdegreeNormalizedFCOneMinusPScoreFunction)
+#' pageRanksGEO=computePageRanks(personalizationVectorsGEO,reactomePPIGraph,0.7)
+#' }
 computePageRanks <-
     function(personalizationVectors,PPIGraph,alpha) {
         pvs = personalizationVectors[row.names(PPIGraph$vertex_map),]
@@ -612,52 +722,79 @@ computePageRanks <-
         return(result)
     }
 
-#' Title
+#' Mean Absolute Deviation between two vectors.
 #'
-#' @param normalPageRanks
-#' @param diseasePageRanks
-#' @param extraArgs
+#' Computes the mean absolute deviation between two vectors. This is meant
+#' to be used as a distance function for \code{\link{computePathwayScores}}
 #'
-#' @return
+#' @param A A vector of real values
+#' @param B A vector of real values of the same size as A
+#' @param extraArgs NA
+#'
+#' @return A data frame containing the mean absolute deviation
+#' between A and B as a single value
 #' @export
 #'
-#' @examples
 meanAbsoluteDeviationDistanceFunction <-
-    function(normalPageRanks,diseasePageRanks,extraArgs) {
+    function(A,B,extraArgs) {
         return(data.frame(meanAbsoluteDeviation = sum(
-            abs(diseasePageRanks - normalPageRanks)
-        ) / length(normalPageRanks)))
+            abs(B - A)
+        ) / length(A)))
     }
 
-#' Title
+#' KL Divergence between two vectors.
 #'
-#' @param normalPageRanks
-#' @param diseasePageRanks
-#' @param extraArgs
+#' Computes the KL divergence between two vectors. This is meant
+#' to be used as a distance function for \code{\link{computePathwayScores}}
 #'
-#' @return
+#' @param A A vector of real values
+#' @param B A vector of real values of the same size as A
+#' @param extraArgs NA
+#'
+#' @return A data frame containing the KL Divergence
+#' between A and B as a single value
 #' @export
 #'
-#' @examples
 KLDivergenceDistanceFunction <-
-    function(normalPageRanks,diseasePageRanks,extraArgs) {
+    function(A,B,extraArgs) {
         return(
             data.frame(
                 KLDivergence =
-                    entropy::KL.plugin(normalPageRanks,diseasePageRanks)))
+                    entropy::KL.plugin(A,B)))
     }
 
-#' Title
+#' Compute the pathway scores from the pageRanks.
 #'
-#' @param pageRanks
-#' @param pathwayMembership
-#' @param distanceFunction
-#' @param distanceFunctionExtraArgs
+#' This function computes the pathway scores for the given pathways and the
+#' pageRanks using the passed distanceFunction
 #'
-#' @return
+#' @param pageRanks A data frame with two columns containing the normal page
+#'   rank and the disease page rank. There are as many rows as number of HGNC
+#'   Symbols in PPI Graph. The output from \code{\link{computePageRanks}}
+#' @param pathwayMembership A list containing two elements - pathways- a single
+#'   column data frame with description string for each unique pathway id
+#'   memberships - a list of character vectors of gene ids indexed by pathway
+#'   id, containing the list of hgnc symbols of genes in each pathway. The
+#'   output of \code{\link{loadPathwayDataReactome}}
+#' @param distanceFunction A function to compare the normal and disease pagerank
+#'   vectors. See \code{\link{KLDivergenceDistanceFunction}} or
+#'   \code{\link{meanAbsoluteDeviationDistanceFunction}} foe examples
+#' @param distanceFunctionExtraArgs A list of extra arguments to be passed to
+#'   the distance function if any.
+#'
+#' @return A data frame containing the deviation score for each pathway.
 #' @export
-#'
 #' @examples
+#' \dontrun{
+#' gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir =
+#' "/tmp") gpl = getGEO(Meta(gds)$platform,destdir = "/tmp") eset =
+#' GDS2eSet(gds, GPL=gpl,do.log2=FALSE) numPairs = dim(pData(eset))[1]/2
+#' expressionDataGEO=importExpressionDataGEO(eset,gpl,defaultProbeSelector,probeCombinerMean)
+#' experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)
+#' personalizationVectorsGEO=computePersonalizationVectors(experimentDataGEO,reactomePPIGraph,data.frame(foldChange=1,pValue=1),outdegreeNormalizedFCOneMinusPScoreFunction)
+#' pageRanksGEO=computePageRanks(personalizationVectorsGEO,reactomePPIGraph,0.7)
+#' pathwayScoresGEO=computePathwayScores(pageRanksGEO,reactomePathwayData$pathwayMembership,meanAbsoluteDeviationDistanceFunction,list())
+#' }
 computePathwayScores <-
     function(pageRanks,pathwayMembership,distanceFunction,
              distanceFunctionExtraArgs) {

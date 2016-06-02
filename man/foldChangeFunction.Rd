@@ -2,14 +2,27 @@
 % Please edit documentation in R/AllFunctions.R
 \name{foldChangeFunction}
 \alias{foldChangeFunction}
-\title{Title}
+\title{Simple fold change test function}
 \usage{
 foldChangeFunction(nData, dData, hgncSymbol, extraArgs)
 }
 \arguments{
-\item{extraArgs}{}
+\item{nData}{The scalar normal expression values for a gene}
+
+\item{dData}{The scalar disease expression values for a gene}
+
+\item{hgncSymbol}{The HGNC Symbol of the gene}
+
+\item{extraArgs}{A list of named extra arguments, the only name supported is
+exponent (assumed to be 1 if not provided for non log transformed data). An
+exponent not equal to 1 assumes that the expression data has been log
+transformed with base exponent}
+}
+\value{
+A single row data frame with one column foldChange
 }
 \description{
-Title
+Computes fold change for two sample expression data for a single gene.
+It is meant to be used with \code{\link{runTestOnData}}.
 }
 

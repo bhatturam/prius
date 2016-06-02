@@ -8,3 +8,5 @@ This package can be installed in R using [devtools](https://cran.r-project.org/w
   library(devtools)
   install_github("bhatturam/prius")
 ```
+For an example of individual and cohort analysis (Datasets used in the paper), please look at demo.R. Refer the manual for documentation
+of the R functions in the package.

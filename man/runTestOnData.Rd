@@ -2,15 +2,43 @@
 % Please edit documentation in R/AllFunctions.R
 \name{runTestOnData}
 \alias{runTestOnData}
-\title{Title}
+\title{Test expression data}
 \usage{
 runTestOnData(data, normalSampleIndexes, diseaseSampleIndexes, testFunction,
   testFunctionExtraArgs)
 }
 \arguments{
-\item{testFunctionExtraArgs}{}
+\item{data}{A data frame with columns as sample names, and rows containing
+the expression values of each as HGNC Symbol. For example the output of
+\code{\link{importExpressionDataGEO}}}
+
+\item{normalSampleIndexes}{The indices of the columns which contain the
+normal samples}
+
+\item{diseaseSampleIndexes}{The indices of the columns which contain the
+disease samples}
+
+\item{testFunction}{The test function - see
+\code{\link{logPairedTTestFunction}}}
+
+\item{testFunctionExtraArgs}{Extra arguments to the test function}
+}
+\value{
+A data frame with as many rows as HGNC Gene Symbols,  with the
+  columns defined by the output of testFunction.
 }
 \description{
-Title
+Runs the specified test function on the expression data to obtain fold change
+and p-values.
+}
+\examples{
+\dontrun{
+gds = getGEO('GDS3837',AnnotGPL = TRUE, getGPL = TRUE,destdir = "/tmp")
+gpl = getGEO(Meta(gds)$platform,destdir = "/tmp")
+eset = GDS2eSet(gds, GPL=gpl,do.log2=FALSE)
+numPairs = dim(pData(eset))[1]/2
+expressionDataGEO=importExpressionDataGEO(eset,gpl,defaultProbeSelector,probeCombinerMean)
+experimentDataGEO=runTestOnData(expressionDataGEO,1:60,61:120,logPairedTTestFunction)
+}
 }
 

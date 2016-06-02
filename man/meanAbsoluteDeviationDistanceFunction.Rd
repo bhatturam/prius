@@ -2,15 +2,23 @@
 % Please edit documentation in R/AllFunctions.R
 \name{meanAbsoluteDeviationDistanceFunction}
 \alias{meanAbsoluteDeviationDistanceFunction}
-\title{Title}
+\title{Mean Absolute Deviation between two vectors.}
 \usage{
-meanAbsoluteDeviationDistanceFunction(normalPageRanks, diseasePageRanks,
-  extraArgs)
+meanAbsoluteDeviationDistanceFunction(A, B, extraArgs)
 }
 \arguments{
-\item{extraArgs}{}
+\item{A}{A vector of real values}
+
+\item{B}{A vector of real values of the same size as A}
+
+\item{extraArgs}{NA}
+}
+\value{
+A data frame containing the mean absolute deviation
+between A and B as a single value
 }
 \description{
-Title
+Computes the mean absolute deviation between two vectors. This is meant
+to be used as a distance function for \code{\link{computePathwayScores}}
 }
 
