@@ -10,3 +10,6 @@ This package can be installed in R using [devtools](https://cran.r-project.org/w
 ```
 For an example of individual and cohort analysis (Datasets used in the paper), please look at demo.R. Refer the manual for documentation
 of the R functions in the package.
+
+## NOTE: 
+The package TCGAbiolinks, that is used in demo.R to fetch data from TCGA has stopped working. This is because the TCGA data has been moved. (See post here - https://support.bioconductor.org/p/83999/). 
